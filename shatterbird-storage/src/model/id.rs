@@ -5,6 +5,8 @@ use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::fmt::{Display, Formatter};
 use std::marker::PhantomData;
+use mongodb::bson::Bson;
+use tracing::warn;
 
 #[derive(Serialize, Deserialize, DeriveWhere)]
 #[derive_where(Default, Debug, Copy, Clone, PartialEq, PartialOrd, Eq, Ord, Hash)]
@@ -43,5 +45,11 @@ impl<T: Model + ?Sized> From<ObjectId> for Id<T> {
 impl<T: Model + ?Sized> From<Id<T>> for ObjectId {
     fn from(id: Id<T>) -> Self {
         id.id
+    }
+}
+
+impl<T: Model + ?Sized> From<Id<T>> for Bson {
+    fn from(id: Id<T>) -> Self {
+        id.id.into()
     }
 }

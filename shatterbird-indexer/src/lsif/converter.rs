@@ -1,10 +1,9 @@
 use futures::future::join_all;
-use std::hash::{Hash, Hasher};
-use std::sync::atomic::AtomicBool;
+use std::hash::Hash;
 
-use futures::{FutureExt, StreamExt, TryFutureExt};
+use futures::TryFutureExt;
 use rayon::prelude::*;
-use scc::{Bag, HashMap, HashSet};
+use scc::{Bag, HashMap};
 use tokio::io::AsyncReadExt;
 use tracing::{debug, debug_span, info, info_span, instrument, Level, trace};
 
@@ -13,8 +12,8 @@ use shatterbird_storage::model::lang::{EdgeData, EdgeDataMultiIn, EdgeInfo, Item
 use shatterbird_storage::model::{Edge, FileContent, Line, Node, Range, Vertex};
 use shatterbird_storage::{Id, Model, Storage};
 
-use crate::graph::{DocumentRef, EdgeRef, Graph, VertexRef};
-use crate::lsif_ext::{EdgeDataRef, EdgeExtensions};
+use super::graph::{DocumentRef, EdgeRef, Graph, VertexRef};
+use super::lsif_ext::{EdgeDataRef, EdgeExtensions};
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 struct LineKey {

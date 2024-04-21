@@ -3,11 +3,9 @@ name = "shatterbird-indexer"
 version = "0.1.0"
 edition = "2021"
 
-[profile.dev]
-opt-level = 3
-
 [dependencies]
 bumpalo = "3.16.0"
+clap = { version = "4.5.4", features = ["derive"] }
 color-eyre = "0.6.3"
 either = "1.11.0"
 eyre = "0.6.12"

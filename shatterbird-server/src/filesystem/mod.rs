@@ -40,14 +40,23 @@ async fn get_node(state: &ServerState, id: Id<Node>, is_short: bool) -> AppResul
         _id: node._id,
         kind: (&node.content).into(),
     };
-    Ok(if is_short {
-        EitherNode::Short(info)
-    } else {
-        EitherNode::Full(FullNode {
-            info,
-            content: node.content,
-        })
-    })
+    if is_short {
+        return Ok(EitherNode::Short(info))
+    }
+    
+    let text = match &node.content {
+        FileContent::Text { lines, .. } => {
+            let lines = state.storage.get_all(&lines[..]).await?;
+            Some(lines.into_iter().map(|ln| ln.text).collect())
+        },
+        _ => None,
+    };
+
+    Ok(EitherNode::Full(FullNode {
+        info,
+        content: node.content,
+        text
+    }))
 }
 
 #[axum::debug_handler(state = Arc<ServerState>)]

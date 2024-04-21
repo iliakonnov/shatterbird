@@ -1,6 +1,4 @@
-use std::cell::Cell;
 use std::collections::HashMap;
-use std::hint::unreachable_unchecked;
 use std::sync::Exclusive;
 
 use bumpalo::Bump;
@@ -9,7 +7,7 @@ use rayon::prelude::*;
 
 use lsp_types::lsif::{Document, Edge, Element, Entry, Id, Vertex};
 
-use crate::lsif_ext::EdgeExtensions;
+use super::lsif_ext::EdgeExtensions;
 
 macro_rules! entry_ref {
     ($name:ident, $func:ident -> $ty:ty, $pat:pat => $val:expr) => {
@@ -21,6 +19,7 @@ macro_rules! entry_ref {
         impl<'a> $name<'a> {
             pub const fn new(entry: &'a Entry) -> Option<Self> {
                 match &entry.data {
+                    #[allow(unused_variables)]
                     $pat => Some(Self {
                         entry
                     }),

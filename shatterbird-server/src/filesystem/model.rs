@@ -16,6 +16,7 @@ pub struct FullNode {
     #[serde(flatten)]
     pub info: NodeInfo,
     pub content: FileContent,
+    pub text: Option<Vec<String>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

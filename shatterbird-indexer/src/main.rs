@@ -1,19 +1,33 @@
 #![feature(exclusive_wrapper)]
 
-use std::io::Write;
-use crate::converter::Converter;
-use crate::graph::Graph;
-use bumpalo::Bump;
-use futures::SinkExt;
-use tracing::info;
+use std::io::BufReader;
+use std::path::PathBuf;
+
+use clap::{arg, Parser, Subcommand};
 use tracing_error::ErrorLayer;
+use tracing_subscriber::{Layer, Registry};
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
-use tracing_subscriber::{Layer, Registry};
 
-mod converter;
-mod graph;
-mod lsif_ext;
+mod lsif;
+
+#[derive(Parser, Debug)]
+struct Args {
+    #[arg(long)]
+    db_url: String,
+
+    #[command(subcommand)]
+    command: Command,
+}
+
+#[derive(Subcommand, Debug)]
+enum Command {
+    Lsif {
+        #[arg(long)]
+        input: PathBuf
+    },
+    Git {}
+}
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> eyre::Result<()> {
@@ -25,38 +39,26 @@ async fn main() -> eyre::Result<()> {
         )
         .init();
     color_eyre::install()?;
-
-    let mut args = std::env::args().skip(1);
-    let uri = match args.next() {
-        Some(x) => x,
-        None => {
-            return Err(eyre::eyre!(
-                "you must provide mongodb connection string as first parameter"
-            ))
+    
+    let args = Args::parse();
+    let storage = shatterbird_storage::Storage::connect(&args.db_url).await?;
+    
+    match args.command {
+        Command::Lsif { input } => match input.as_os_str().as_encoded_bytes() {
+            b"-" => {
+                let stdin = BufReader::new(std::io::stdin());
+                lsif::load_lsif(&storage, stdin).await?;
+            },
+            _ => {
+                let file = BufReader::new(std::fs::File::open(input)?);
+                lsif::load_lsif(&storage, file).await?;
+            }
+        },
+        Command::Git {} => {
+            todo!()
         }
-    };
-    if args.next().is_some() {
-        return Err(eyre::eyre!("only one argument is expected"));
     }
-    let storage = shatterbird_storage::Storage::connect(&uri).await?;
-
-    info!("parsing graph");
-    let arena = Bump::new();
-    let mut graph = Graph::new(&arena);
-    for line in std::io::stdin().lines() {
-        let line = line?;
-        let entry = serde_json::from_str(&line)?;
-        graph.add(entry)
-    }
-
-    info!("converting graph");
-    let converter = Converter::new(&graph);
-    converter.load().await?;
-
-    info!("saving");
-    converter.save(&storage).await?;
 
     storage.shutdown().await?;
-
     Ok(())
 }

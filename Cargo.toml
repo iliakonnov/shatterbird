@@ -1,3 +1,15 @@
 [workspace]
 resolver = "2"
 members = ["lsp-types", "shatterbird-indexer", "shatterbird-server", "shatterbird-storage", "shatterbird-utils"]
+
+# shatterbrid-indexer is very heavy on CPU
+[profile.dev.package.shatterbird-indexer]
+opt-level = 3
+
+# Set the settings for build scripts and proc-macros.
+[profile.dev.build-override]
+opt-level = 3
+
+# Set the default for dependencies.
+[profile.dev.package."*"]
+opt-level = 2

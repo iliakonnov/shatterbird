@@ -40,8 +40,8 @@ macro_rules! model {
 }
 
 model!(
-    Range: "spans",
-    Vertex: "results",
+    Range: "ranges",
+    Vertex: "vertices",
     Edge: "edges",
     Node: "nodes",
     Line: "lines",
