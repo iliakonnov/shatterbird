@@ -9,7 +9,7 @@ use mongodb::bson::doc;
 
 use serde::{Deserialize, Serialize};
 
-use shatterbird_storage::{BlobFile, FileContent, Id, Node, Snapshot};
+use shatterbird_storage::model::{BlobFile, FileContent, Id, Node, Snapshot};
 
 use crate::filesystem::model::{EitherNode, FullNode, NodeInfo};
 use crate::state::AppState;

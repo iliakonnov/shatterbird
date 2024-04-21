@@ -10,14 +10,14 @@ cfg-if = "1.0.0"
 clap = "4.5.4"
 color-eyre = "0.6.3"
 eyre = "0.6.12"
+log = "0.4.21"
 mongodb = "2.8.2"
+serde = { version = "1.0.197", features = ["derive"] }
 tokio = { version = "1.36.0", features = ["full"] }
 tower-http = { version = "0.5.2", features = ["trace"] }
 tracing = "0.1.40"
 tracing-error = "0.2"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
-log = "0.4.21"
-serde = { version = "1.0.197", features = ["derive"] }
 
 shatterbird-storage = { path = "../shatterbird-storage" }
 shatterbird-utils = { path = "../shatterbird-utils" }

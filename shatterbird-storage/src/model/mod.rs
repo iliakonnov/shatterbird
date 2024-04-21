@@ -1,12 +1,12 @@
 mod files;
 mod history;
 mod id;
-mod lang;
+pub mod lang;
 
 pub use files::{BlobFile, FileContent, Line, Node, Range};
 pub use history::Snapshot;
 pub use id::Id;
-pub use lang::{Vertex, VertexData};
+pub use lang::{Edge, Vertex};
 
 use serde::de::DeserializeOwned;
 use serde::Serialize;
@@ -42,6 +42,7 @@ macro_rules! model {
 model!(
     Range: "spans",
     Vertex: "results",
+    Edge: "edges",
     Node: "nodes",
     Line: "lines",
     BlobFile: "blobs",

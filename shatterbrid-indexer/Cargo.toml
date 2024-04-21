@@ -1,7 +1,0 @@
-[package]
-name = "shatterbrid-indexer"
-version = "0.1.0"
-edition = "2021"
-
-[dependencies]
-lsp-types = "0.95.1"

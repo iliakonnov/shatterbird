@@ -2,7 +2,7 @@ use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use axum::Json;
 use serde::{Deserialize, Serialize};
-use shatterbird_storage::{FileContent, Id, Node};
+use shatterbird_storage::model::{FileContent, Id, Node};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum EitherNode {

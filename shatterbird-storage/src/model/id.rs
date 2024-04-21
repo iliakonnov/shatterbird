@@ -16,6 +16,15 @@ pub struct Id<T: Model + ?Sized> {
     pub _phantom: PhantomData<fn() -> T>,
 }
 
+impl<T: Model + ?Sized> Id<T> {
+    pub fn new() -> Self {
+        Id {
+            id: ObjectId::new(),
+            _phantom: Default::default(),
+        }
+    }
+}
+
 impl<T: Model + ?Sized> Display for Id<T> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, "{}[{}]", T::COLLECTION, self.id)
