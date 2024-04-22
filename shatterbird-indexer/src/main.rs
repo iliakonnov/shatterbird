@@ -10,6 +10,7 @@ use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 
 mod lsif;
+mod git;
 
 #[derive(Parser, Debug)]
 struct Args {
@@ -26,7 +27,10 @@ enum Command {
         #[arg(long)]
         input: PathBuf
     },
-    Git {}
+    Git {
+        #[arg(long)]
+        root: PathBuf
+    }
 }
 
 #[tokio::main(flavor = "current_thread")]
@@ -54,8 +58,8 @@ async fn main() -> eyre::Result<()> {
                 lsif::load_lsif(&storage, file).await?;
             }
         },
-        Command::Git {} => {
-            todo!()
+        Command::Git { root } => {
+            git::index(&storage, &root).await?;
         }
     }
 

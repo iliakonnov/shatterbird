@@ -10,6 +10,7 @@ color-eyre = "0.6.3"
 either = "1.11.0"
 eyre = "0.6.12"
 futures = "0.3.30"
+gix = "0.62.0"
 lsp-types = { path = "../lsp-types" }
 multimap = "0.10.0"
 rayon = "1.10.0"
