@@ -1,0 +1,12 @@
+{
+  "name": "shatterbird",
+  "version": "1.0.0",
+  "publisher": "iliakonnov",
+  "private": true,
+  "engines": {
+    "vscode": "^1.82.0"
+  },
+  "activationEvents": ["onFileSystem:memfs"],
+  "browser": "./extension",
+  "enabledApiProposals": ["fileSearchProvider", "textSearchProvider"]
+}
