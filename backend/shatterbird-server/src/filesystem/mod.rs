@@ -1,15 +1,16 @@
 //! https://code.visualstudio.com/api/references/vscode-api#FileSystemProvider
 
+use std::str::FromStr;
 use std::sync::Arc;
 
 use axum::extract::{Path, Query, State};
 use axum::routing::get;
 use axum::Router;
 use mongodb::bson::doc;
-
+use mongodb::bson::oid::ObjectId;
 use serde::{Deserialize, Serialize};
 
-use shatterbird_storage::model::{BlobFile, FileContent, Id, Node, Snapshot};
+use shatterbird_storage::model::{BlobFile, Commit, FileContent, Id, Node};
 
 use crate::filesystem::model::{EitherNode, FullNode, NodeInfo};
 use crate::state::AppState;
@@ -20,7 +21,8 @@ mod model;
 
 pub fn router() -> Router<Arc<ServerState>> {
     Router::new()
-        .route("/tree/:snapshot/*uri", get(by_path))
+        .route("/tree/:commit", get(get_commit))
+        .route("/tree/:commit/*uri", get(by_path))
         .route("/nodes/:id", get(by_id))
         .route("/blobs/:id", get(get_blob))
 }
@@ -41,43 +43,37 @@ async fn get_node(state: &ServerState, id: Id<Node>, is_short: bool) -> AppResul
         kind: (&node.content).into(),
     };
     if is_short {
-        return Ok(EitherNode::Short(info))
+        return Ok(EitherNode::Short(info));
     }
-    
+
     let text = match &node.content {
         FileContent::Text { lines, .. } => {
             let lines = state.storage.get_all(&lines[..]).await?;
             Some(lines.into_iter().map(|ln| ln.text).collect())
-        },
+        }
         _ => None,
     };
 
     Ok(EitherNode::Full(FullNode {
         info,
         content: node.content,
-        text
+        text,
     }))
 }
 
 #[axum::debug_handler(state = Arc<ServerState>)]
 async fn by_path(
     State(state): AppState,
-    Path((snapshot, path)): Path<(String, String)>,
+    Path((commit, path)): Path<(String, String)>,
     Query(is_short): Query<IsShort>,
 ) -> AppResult<EitherNode> {
-    let root = state
+    let commit = state
         .storage
-        .access::<Snapshot>()
-        .find_one(
-            doc! {
-                "commit_id": snapshot
-            },
-            None,
-        )
+        .get::<Commit>(Id::from(ObjectId::from_str(&commit)?))
         .await?;
-    let root = match root {
+    let root = match commit {
         Some(x) => x.root,
-        None => return Ok(EitherNode::NotFound("unknown snapshot".to_string())),
+        None => return Ok(EitherNode::NotFound("unknown commit".to_string())),
     };
 
     let mut next = root;
@@ -110,6 +106,23 @@ async fn by_path(
     }
 
     get_node(&state, next, is_short.short).await
+}
+
+#[axum::debug_handler(state = Arc<ServerState>)]
+async fn get_commit(
+    State(state): AppState,
+    Path(commit): Path<String>,
+    Query(is_short): Query<IsShort>,
+) -> AppResult<EitherNode> {
+    let commit = state
+        .storage
+        .get::<Commit>(Id::from(ObjectId::from_str(&commit)?))
+        .await?;
+    let root = match commit {
+        Some(x) => x.root,
+        None => return Ok(EitherNode::NotFound("unknown commit".to_string())),
+    };
+    get_node(&state, root, is_short.short).await
 }
 
 #[axum::debug_handler(state = Arc<ServerState>)]

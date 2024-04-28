@@ -137,6 +137,7 @@ impl<'a> Converter<'a> {
                 doc_id.clone(),
                 Node {
                     _id: Id::new(),
+                    oid: gix::ObjectId::empty_blob(gix::hash::Kind::Sha1),  // TODO: Reuse objects from Git
                     created_at: Default::default(),
                     content: FileContent::Text {
                         size: content.bytes().len() as u64,

@@ -3,7 +3,7 @@ mod history;
 mod id;
 pub mod lang;
 
-pub use files::{BlobFile, FileContent, Line, Node, Range};
+pub use files::{BlobFile, Commit, FileContent, Line, Node, Range};
 pub use history::Snapshot;
 pub use id::Id;
 pub use lang::{Edge, Vertex};
@@ -44,6 +44,7 @@ model!(
     Vertex: "vertices",
     Edge: "edges",
     Node: "nodes",
+    Commit: "commits",
     Line: "lines",
     BlobFile: "blobs",
     Snapshot: "snapshots"

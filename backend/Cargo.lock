@@ -277,9 +277,9 @@ dependencies = [
 
 [[package]]
 name = "bson"
-version = "2.9.0"
+version = "2.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ce21468c1c9c154a85696bb25c20582511438edb6ad67f846ba1378ffdd80222"
+checksum = "4d43b38e074cc0de2957f10947e376a1d88b9c4dbab340b590800cc1b2e066b2"
 dependencies = [
  "ahash",
  "base64 0.13.1",
@@ -1218,6 +1218,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f93d7df7366121b5018f947a04d37f034717e113dcf9ccd85c34b58e57a74d5e"
 dependencies = [
  "faster-hex",
+ "serde",
  "thiserror",
 ]
 
@@ -2800,6 +2801,7 @@ dependencies = [
 name = "shatterbird-indexer"
 version = "0.1.0"
 dependencies = [
+ "bson",
  "bumpalo",
  "clap",
  "color-eyre",
@@ -2811,6 +2813,7 @@ dependencies = [
  "multimap",
  "rayon",
  "scc",
+ "serde",
  "serde_json",
  "shatterbird-storage",
  "tokio",
@@ -2847,6 +2850,7 @@ dependencies = [
  "derive-where",
  "eyre",
  "futures",
+ "gix-hash",
  "lsp-types",
  "mongodb",
  "serde",

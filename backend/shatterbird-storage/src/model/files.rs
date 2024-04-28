@@ -33,6 +33,15 @@ pub enum FileContent {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Node {
     pub _id: Id<Self>,
-    pub created_at: Id<Snapshot>,
+    pub oid: gix_hash::ObjectId,
+    pub created_at: Id<Snapshot>, // TODO: Get rid of this
     pub content: FileContent,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Commit {
+    pub _id: Id<Self>,
+    pub oid: gix_hash::ObjectId,
+    pub root: Id<Node>,
+    pub parents: Vec<Id<Commit>>,
 }
