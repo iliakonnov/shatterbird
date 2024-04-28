@@ -7,6 +7,7 @@ use std::fmt::{Display, Formatter};
 use std::marker::PhantomData;
 use mongodb::bson::Bson;
 use tracing::warn;
+use ts_rs::TS;
 
 #[derive(Serialize, Deserialize, DeriveWhere)]
 #[derive_where(Default, Debug, Copy, Clone, PartialEq, PartialOrd, Eq, Ord, Hash)]

@@ -14,10 +14,13 @@ log = "0.4.21"
 mongodb = "2.8.2"
 serde = { version = "1.0.197", features = ["derive"] }
 tokio = { version = "1.36.0", features = ["full"] }
-tower-http = { version = "0.5.2", features = ["trace"] }
+tower-http = { version = "0.5.2", features = ["trace", "cors"] }
 tracing = "0.1.40"
 tracing-error = "0.2"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+futures = "0.3.30"
+ts-rs = "8.1"
+gix-hash = "0.14.2"
 
 shatterbird-storage = { path = "../shatterbird-storage" }
 shatterbird-utils = { path = "../shatterbird-utils" }

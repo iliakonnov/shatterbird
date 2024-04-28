@@ -5,10 +5,13 @@ use std::sync::Arc;
 
 use axum::extract::{Path, Query, State};
 use axum::routing::get;
-use axum::Router;
+use axum::{Json, Router};
+use futures::TryStreamExt;
+use gix_hash::oid;
 use mongodb::bson::doc;
 use mongodb::bson::oid::ObjectId;
 use serde::{Deserialize, Serialize};
+use shatterbird_storage::Model;
 
 use shatterbird_storage::model::{BlobFile, Commit, FileContent, Id, Node};
 
@@ -21,7 +24,10 @@ mod model;
 
 pub fn router() -> Router<Arc<ServerState>> {
     Router::new()
-        .route("/tree/:commit", get(get_commit))
+        .route("/commits", get(list_commits))
+        .route("/commits/by-id/:commit", get(get_commit_by_id))
+        .route("/commits/by-oid/:oid", get(get_commit_by_git))
+        .route("/tree/:commit", get(get_commit_root))
         .route("/tree/:commit/*uri", get(by_path))
         .route("/nodes/:id", get(by_id))
         .route("/blobs/:id", get(get_blob))
@@ -109,7 +115,7 @@ async fn by_path(
 }
 
 #[axum::debug_handler(state = Arc<ServerState>)]
-async fn get_commit(
+async fn get_commit_root(
     State(state): AppState,
     Path(commit): Path<String>,
     Query(is_short): Query<IsShort>,
@@ -141,4 +147,43 @@ async fn get_blob(
 ) -> AppResult<May404<Vec<u8>>> {
     let blob = state.storage.get(id).await?;
     Ok(May404(blob.map(|x| x.data)))
+}
+
+#[axum::debug_handler(state = Arc<ServerState>)]
+async fn list_commits(State(state): AppState) -> AppResult<Json<Vec<Commit>>> {
+    let cursor = state.storage.access::<Commit>().find(None, None).await?;
+    let commits: Vec<Commit> = cursor.try_collect().await?;
+    Ok(Json(commits))
+}
+
+#[axum::debug_handler(state = Arc<ServerState>)]
+async fn get_commit_by_id(
+    State(state): AppState,
+    Path(commit): Path<String>,
+) -> AppResult<May404<Json<Commit>>> {
+    Ok(May404(
+        state
+            .storage
+            .get::<Commit>(Id::from(ObjectId::from_str(&commit)?))
+            .await?
+            .map(Json),
+    ))
+}
+
+#[axum::debug_handler(state = Arc<ServerState>)]
+async fn get_commit_by_git(
+    State(state): AppState,
+    Path(commit): Path<String>,
+) -> AppResult<May404<Json<Commit>>> {
+    let oid = match gix_hash::ObjectId::from_str(&commit) {
+        Ok(x) => x,
+        Err(_) => return Ok(May404(None)),
+    };
+    Ok(May404(
+        state
+            .storage
+            .get_by_oid::<Commit>(oid)
+            .await?
+            .map(Json),
+    ))
 }

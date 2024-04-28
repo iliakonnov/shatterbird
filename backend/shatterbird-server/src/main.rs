@@ -43,7 +43,8 @@ async fn main() -> eyre::Result<()> {
         .nest("/api", api::router())
         .nest("/fs", filesystem::router())
         .fallback(|| async { (StatusCode::NOT_FOUND, "unknown route") })
-        .with_state(state);
+        .with_state(state)
+        .layer(tower_http::cors::CorsLayer::permissive());
     axum::serve(listener, router).await?;
 
     Ok(())

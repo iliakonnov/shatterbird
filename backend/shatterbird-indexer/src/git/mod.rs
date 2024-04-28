@@ -57,7 +57,6 @@ impl<'s, 'r> Walker<'_, 'r> {
         let result = Node {
             _id: Id::new(),
             oid: tree.id,
-            created_at: Default::default(),
             content: FileContent::Directory { children },
         };
         debug!("saving tree as {}", result.id());
@@ -111,7 +110,6 @@ impl<'s, 'r> Walker<'_, 'r> {
         let result = Node {
             _id: Id::new(),
             oid: blob.id,
-            created_at: Default::default(),
             content,
         };
         debug!("saving blob as {}", result.id());

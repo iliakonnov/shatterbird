@@ -18,8 +18,8 @@
     }
   },
   "folderUri": {
-    "scheme": "memfs",
-    "path": "/sample-folder"
+    "scheme": "bird",
+    "path": "/"
   },
   "additionalBuiltinExtensions": [
     {

@@ -10,6 +10,7 @@ pub use lang::{Edge, Vertex};
 
 use serde::de::DeserializeOwned;
 use serde::Serialize;
+use ts_rs::TS;
 
 trait Private {}
 
