@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["lsp-types", "shatterbird-indexer", "shatterbird-server", "shatterbird-storage", "shatterbird-utils"]
+members = ["shatterbird-indexer", "shatterbird-server", "shatterbird-storage", "shatterbird-utils"]
 
 # shatterbrid-indexer is very heavy on CPU
 [profile.dev.package.shatterbird-indexer]

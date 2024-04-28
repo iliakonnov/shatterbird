@@ -2,13 +2,11 @@
 <module type="EMPTY_MODULE" version="4">
   <component name="NewModuleRootManager">
     <content url="file://$MODULE_DIR$">
-      <sourceFolder url="file://$MODULE_DIR$/shatterbird-storage/src" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/shatterbird-utils/src" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/lsp-types/src" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/lsp-types/tests" isTestSource="true" />
-      <sourceFolder url="file://$MODULE_DIR$/shatterbird-server/src" isTestSource="false" />
-      <sourceFolder url="file://$MODULE_DIR$/shatterbird-indexer/src" isTestSource="false" />
-      <excludeFolder url="file://$MODULE_DIR$/target" />
+      <sourceFolder url="file://$MODULE_DIR$/backend/shatterbird-indexer/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/backend/shatterbird-server/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/backend/shatterbird-storage/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/backend/shatterbird-utils/src" isTestSource="false" />
+      <excludeFolder url="file://$MODULE_DIR$/backend/target" />
     </content>
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />
