@@ -2188,14 +2188,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "mongo-model-test"
-version = "0.1.0"
-dependencies = [
- "mongo-model",
- "serde",
-]
-
-[[package]]
 name = "mongodb"
 version = "2.8.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"

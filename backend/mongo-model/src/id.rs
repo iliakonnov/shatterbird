@@ -1,16 +1,15 @@
-use crate::Model as Model;
-use derive_where::{derive_where, DeriveWhere};
+use crate::{Model, ModelBounds};
 use bson::oid::ObjectId;
+use bson::Bson;
+use derive_where::{derive_where, DeriveWhere};
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::fmt::{Display, Formatter};
 use std::marker::PhantomData;
-use bson::Bson;
 
 #[derive(Serialize, Deserialize, DeriveWhere)]
 #[derive_where(Default, Debug, Copy, Clone, PartialEq, PartialOrd, Eq, Ord, Hash)]
 #[serde(transparent)]
-#[allow(private_bounds)]
 pub struct Id<T: Model + ?Sized> {
     pub id: ObjectId,
     #[derive_where(skip)]

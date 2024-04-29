@@ -3,7 +3,6 @@ resolver = "2"
 members = [
     "mongo-model",
     "mongo-model/mongo-model-derive",
-    "mongo-model/mongo-model-test",
     "shatterbird-indexer",
     "shatterbird-server",
     "shatterbird-storage",

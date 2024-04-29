@@ -1,12 +1,10 @@
 extern crate proc_macro;
 use darling::FromDeriveInput;
-use proc_macro::TokenStream;
+use proc_macro::{TokenStream};
+use proc_macro2::Span;
 use quote::{format_ident, quote};
 use syn::visit_mut::VisitMut;
-use syn::{
-    parse_macro_input, parse_quote, DataStruct, DeriveInput, Field, Ident, Path, PathArguments,
-    PathSegment, Type, TypePath,
-};
+use syn::{parse_macro_input, parse_quote, DataStruct, DeriveInput, Field, Ident, Path, PathArguments, PathSegment, Type, TypePath, Token};
 
 #[derive(Default, FromDeriveInput)]
 #[darling(attributes(mongo_model))]
@@ -58,9 +56,7 @@ fn process(input: DeriveInput) -> Result<TokenStream, darling::Error> {
     let Options { collection } = Options::from_derive_input(&input)?;
 
     let DeriveInput {
-        vis,
         ident,
-        generics,
         data,
         ..
     } = input;
@@ -71,8 +67,7 @@ fn process(input: DeriveInput) -> Result<TokenStream, darling::Error> {
     };
 
     let filter_type = format_ident!("{}Filter", ident);
-    let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
-    let struct_ty: Type = parse_quote!(#ident #ty_generics);
+    let struct_ty: Type = parse_quote!(#ident);
 
     let field_names = fields
         .iter()
@@ -119,12 +114,12 @@ fn process(input: DeriveInput) -> Result<TokenStream, darling::Error> {
                 .collect::<Vec<_>>();
             quote! {
                 #[derive(::mongo_model::serde::Serialize, ::mongo_model::serde::Deserialize)]
-                struct #field #impl_generics #where_clause {
+                struct #field {
                     #(#serde_attrs)*
                     val: #ty,
 
                     #[serde(skip)]
-                    _phantom: core::marker::PhantomData<#ident #ty_generics>,
+                    _phantom: core::marker::PhantomData<#ident>,
                 }
             }
         },
@@ -196,7 +191,7 @@ fn process(input: DeriveInput) -> Result<TokenStream, darling::Error> {
     );
 
     let res = quote! {
-        impl #impl_generics ::mongo_model::Model for #ident #ty_generics #where_clause {
+        impl ::mongo_model::Model for #ident {
             const COLLECTION: &'static str = #collection;
 
             fn id(&self) -> ::mongo_model::Id<Self> {
@@ -204,22 +199,22 @@ fn process(input: DeriveInput) -> Result<TokenStream, darling::Error> {
             }
         }
 
-        impl #impl_generics #ident #ty_generics #where_clause {
-            pub fn filter() -> #filter_type #ty_generics {
+        impl #ident {
+            pub fn filter() -> #filter_type {
                 <_ as core::default::Default>::default()
             }
         }
 
         #[derive(Debug, Clone, ::mongo_model::serde::Serialize, ::mongo_model::serde::Deserialize)]
-        pub struct #filter_type #impl_generics #where_clause {
+        pub struct #filter_type {
             #(#filter_fields)*
 
             #[serde(skip)]
-            _phantom: core::marker::PhantomData<#ident #ty_generics>,
+            _phantom: core::marker::PhantomData<#ident>,
         }
 
         const _: () = {
-            impl #impl_generics ::core::default::Default for #filter_type #ty_generics #where_clause {
+            impl ::core::default::Default for #filter_type {
                 fn default() -> Self {
                     Self {
                         #(
@@ -232,12 +227,12 @@ fn process(input: DeriveInput) -> Result<TokenStream, darling::Error> {
 
             #(#filter_helpers)*
 
-            impl #impl_generics #filter_type #ty_generics {
+            impl #filter_type {
                 #(#filter_fns)*
             }
 
-            impl #impl_generics ::mongo_model::ModelFilter for #filter_type #ty_generics {
-                type Model = #ident #ty_generics;
+            impl ::mongo_model::ModelFilter for #filter_type {
+                type Model = #ident;
 
                 fn build(self) -> Option<::mongo_model::bson::Document> {
                     ::mongo_model::bson::ser::to_document(&self).ok()
