@@ -1,6 +1,14 @@
 [workspace]
 resolver = "2"
-members = ["shatterbird-indexer", "shatterbird-server", "shatterbird-storage", "shatterbird-utils"]
+members = [
+    "mongo-model",
+    "mongo-model/mongo-model-derive",
+    "mongo-model/mongo-model-test",
+    "shatterbird-indexer",
+    "shatterbird-server",
+    "shatterbird-storage",
+    "shatterbird-utils"
+]
 
 # shatterbird-indexer is very heavy on CPU
 [profile.dev.package.shatterbird-indexer]

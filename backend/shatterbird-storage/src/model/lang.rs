@@ -1,16 +1,22 @@
 use serde::{Deserialize, Serialize};
 
-use super::{Id, Range};
+use mongo_model::Id;
+use crate::Model;
+use super::files::Range;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Model)]
+#[mongo_model(collection = "vertices")]
 pub struct Vertex {
-    pub _id: Id<Self>,
+    #[serde(rename="_id")]
+    pub id: Id<Self>,
     pub data: VertexInfo,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Model)]
+#[mongo_model(collection = "edges")]
 pub struct Edge {
-    pub _id: Id<Self>,
+    #[serde(rename="_id")]
+    pub id: Id<Self>,
     pub data: EdgeInfo,
 }
 

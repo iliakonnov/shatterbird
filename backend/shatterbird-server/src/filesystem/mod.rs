@@ -8,12 +8,13 @@ use axum::{Json, Router};
 use axum::extract::{Path, Query, State};
 use axum::routing::get;
 use futures::TryStreamExt;
+use log::warn;
 use mongodb::bson::doc;
 use mongodb::bson::oid::ObjectId;
 use serde::{Deserialize, Serialize};
 
-use shatterbird_storage::Model;
-use shatterbird_storage::model::{BlobFile, Commit, FileContent, Id, Node};
+use shatterbird_storage::Id;
+use shatterbird_storage::model::{BlobFile, Commit, FileContent, Line, Node};
 
 use crate::filesystem::model::{EitherNode, ExpandedFileContent, FullNode, NodeInfo};
 use crate::ServerState;
@@ -45,7 +46,7 @@ async fn get_node(state: &ServerState, id: Id<Node>, is_short: bool) -> AppResul
         None => return Ok(EitherNode::NotFound("unknown id".to_string())),
     };
     let info = NodeInfo {
-        _id: node._id,
+        _id: node.id,
         kind: (&node.content).into(),
     };
     if is_short {
@@ -59,10 +60,10 @@ async fn get_node(state: &ServerState, id: Id<Node>, is_short: bool) -> AppResul
             let children_ids: Vec<_> = children.values().copied().collect();
             let children_nodes = state
                 .storage
-                .get_all(&children_ids[..])
+                .find_all(Node::filter().id_any(children_ids))
                 .await?
                 .into_iter()
-                .map(|c| (c._id, c))
+                .map(|c| (c.id, c))
                 .collect::<HashMap<_, _>>();
             ExpandedFileContent::Directory {
                 children: children
@@ -71,7 +72,7 @@ async fn get_node(state: &ServerState, id: Id<Node>, is_short: bool) -> AppResul
                         children_nodes
                             .get(&id)
                             .map(|node| NodeInfo {
-                                _id: node._id,
+                                _id: node.id,
                                 kind: (&node.content).into(),
                             })
                             .map(|node| (k, node))
@@ -80,7 +81,7 @@ async fn get_node(state: &ServerState, id: Id<Node>, is_short: bool) -> AppResul
             }
         }
         FileContent::Text { size, lines } => {
-            let lines = state.storage.get_all(&lines[..]).await?;
+            let lines = state.storage.find_all(Line::filter().id_any(lines)).await?;
             ExpandedFileContent::Text { size, lines }
         }
     };
@@ -198,7 +199,10 @@ async fn get_commit_by_git(
 ) -> AppResult<May404<Json<Commit>>> {
     let oid = match gix_hash::ObjectId::from_str(&commit) {
         Ok(x) => x,
-        Err(_) => return Ok(May404(None)),
+        Err(e) => {
+            warn!("invalid commit id {}: {}", commit, e);
+            return Ok(May404(None))
+        },
     };
     Ok(May404(
         state.storage.get_by_oid::<Commit>(oid).await?.map(Json),

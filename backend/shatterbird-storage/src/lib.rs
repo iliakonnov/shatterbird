@@ -5,12 +5,12 @@ use mongodb::{bson, Client, Collection, Database};
 use serde::Serialize;
 use tracing::{info, instrument};
 
-use crate::model::Node;
-pub use model::{Id, Model};
+pub use mongo_model::{Id, Model};
+use mongo_model::ModelFilter;
 
 pub mod model;
-pub mod ts;
 mod serializers;
+pub mod ts;
 
 pub struct Storage {
     client: Client,
@@ -39,18 +39,25 @@ impl Storage {
         self.database.collection(T::COLLECTION)
     }
 
-    pub async fn get_all<T: Model>(&self, ids: &[Id<T>]) -> eyre::Result<Vec<T>> {
-        let cursor = self.access().find(doc! {"_id": {"$in": ids}}, None).await?;
-        Ok(cursor.try_collect().await?)
-    }
-
     pub async fn get<T: Model>(&self, id: Id<T>) -> eyre::Result<Option<T>> {
         Ok(self.access().find_one(doc! {"_id": id}, None).await?)
+    }
+    
+    pub async fn find<T: ModelFilter>(&self, filter: T) -> eyre::Result<Option<T::Model>> {
+        Ok(self.access()
+            .find_one(filter.build(), None)
+            .await?)
+    }
+    
+    pub async fn find_all<T: ModelFilter>(&self, filter: T) -> eyre::Result<Vec<T::Model>> {
+        let cursor = self.access().find(filter.build(), None).await?;
+        Ok(cursor.try_collect().await?)
     }
 
     pub async fn get_by_oid<T: Model>(&self, oid: gix_hash::ObjectId) -> eyre::Result<Option<T>> {
         #[derive(Serialize)]
         struct Filter {
+            #[serde(with = "crate::serializers::gix_hash")]
             oid: ObjectId,
         }
         let filter = bson::to_bson(&Filter { oid })?;

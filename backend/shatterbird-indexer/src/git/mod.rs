@@ -55,7 +55,7 @@ impl<'s, 'r> Walker<'_, 'r> {
             children.insert(entry.filename.to_string(), child_id);
         }
         let result = Node {
-            _id: Id::new(),
+            id: Id::new(),
             oid: tree.id,
             content: FileContent::Directory { children },
         };
@@ -85,7 +85,7 @@ impl<'s, 'r> Walker<'_, 'r> {
                 let lines: Vec<_> = lines
                     .iter()
                     .map(|ln| Line {
-                        _id: Id::new(),
+                        id: Id::new(),
                         text: ln.to_string(),
                     })
                     .collect();
@@ -97,7 +97,7 @@ impl<'s, 'r> Walker<'_, 'r> {
             }
             Err(_) => {
                 let file = BlobFile {
-                    _id: Id::new(),
+                    id: Id::new(),
                     data: blob.data[..10_000].to_vec(),
                 };
                 self.storage.insert_one(&file).await?;
@@ -108,7 +108,7 @@ impl<'s, 'r> Walker<'_, 'r> {
             }
         };
         let result = Node {
-            _id: Id::new(),
+            id: Id::new(),
             oid: blob.id,
             content,
         };
@@ -150,7 +150,7 @@ pub async fn index(storage: &Storage, root: &Path) -> eyre::Result<()> {
     }
 
     let commit = Commit {
-        _id: Id::new(),
+        id: Id::new(),
         oid: commit.id,
         root,
         parents,

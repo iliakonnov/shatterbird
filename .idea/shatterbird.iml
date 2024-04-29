@@ -6,6 +6,10 @@
       <sourceFolder url="file://$MODULE_DIR$/backend/shatterbird-server/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/backend/shatterbird-storage/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/backend/shatterbird-utils/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/backend/mongo-model/mongo-model-derive/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/backend/mongo-model/mongo-model-test/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/backend/mongo-model/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/backend/mongo-model/src" isTestSource="false" />
       <excludeFolder url="file://$MODULE_DIR$/backend/target" />
     </content>
     <orderEntry type="inheritedJdk" />

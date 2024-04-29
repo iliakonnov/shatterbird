@@ -1,13 +1,11 @@
-use super::Model;
+use crate::Model as Model;
 use derive_where::{derive_where, DeriveWhere};
-use mongodb::bson::oid::ObjectId;
+use bson::oid::ObjectId;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::fmt::{Display, Formatter};
 use std::marker::PhantomData;
-use mongodb::bson::Bson;
-use tracing::warn;
-use ts_rs::TS;
+use bson::Bson;
 
 #[derive(Serialize, Deserialize, DeriveWhere)]
 #[derive_where(Default, Debug, Copy, Clone, PartialEq, PartialOrd, Eq, Ord, Hash)]

@@ -1,0 +1,10 @@
+[package]
+name = "mongo-model-test"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+
+[dependencies]
+mongo-model = { path = "../" }
+serde = { version = "1.0.197", features = ["derive"] }

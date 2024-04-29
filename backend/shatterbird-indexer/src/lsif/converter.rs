@@ -136,7 +136,7 @@ impl<'a> Converter<'a> {
             .insert_async(
                 doc_id.clone(),
                 Node {
-                    _id: Id::new(),
+                    id: Id::new(),
                     oid: gix::ObjectId::empty_blob(gix::hash::Kind::Sha1),  // TODO: Reuse objects from Git
                     content: FileContent::Text {
                         size: content.bytes().len() as u64,
@@ -152,7 +152,7 @@ impl<'a> Converter<'a> {
             .insert_async(
                 doc_id.clone(),
                 Vertex {
-                    _id: vertex_id,
+                    id: vertex_id,
                     data: VertexInfo::Document(doc.clone()),
                 },
             )
@@ -215,7 +215,7 @@ impl<'a> Converter<'a> {
 
         let id = Id::new();
         self.edges.push(Edge {
-            _id: id,
+            id: id,
             data: match edge.edge() {
                 lsif::Edge::Contains(_x) => EdgeInfo::Contains(edge_data_multi),
                 lsif::Edge::Moniker(_x) => EdgeInfo::Moniker(edge_data),
@@ -316,7 +316,7 @@ impl<'a> Converter<'a> {
             },
         };
         let id = Id::new();
-        _ = self.vertices.insert(v.clone(), Vertex { _id: id, data });
+        _ = self.vertices.insert(v.clone(), Vertex { id: id, data });
         Ok(Some(id))
     }
 
@@ -331,7 +331,7 @@ impl<'a> Converter<'a> {
 
         let id = Id::new();
         let line = Line {
-            _id: id,
+            id: id,
             text: line.to_string(),
         };
         let key = LineKey {
@@ -382,7 +382,7 @@ impl<'a> Converter<'a> {
 
         let id = Id::new();
         let range = Range {
-            _id: id,
+            id: id,
             line_id,
             start: range.start.character,
             end,
