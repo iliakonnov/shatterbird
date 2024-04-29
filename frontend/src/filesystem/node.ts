@@ -30,7 +30,7 @@ export class DirNode implements DirectoryLike {
         for (let key of Object.keys(node.content.Directory.children)) {
             const child = node.content.Directory.children[key];
             if (child.kind == 'Text' || child.kind == 'Blob') {
-                result.push(new FileNode(child._id.$oid, key));
+                result.push(new FileNode(this.client, child._id, key));
             } else if (child.kind == 'Directory') {
                 result.push(new DirNode(this.client, child._id, key));
             }
@@ -56,14 +56,38 @@ export class DirNode implements DirectoryLike {
 export class FileNode implements FileLike {
     public readonly name: string;
     public readonly fileType = FileType.File;
+    private readonly nodeId: Id<Node>;
+    private readonly client: FsClient;
 
-    constructor(_id: string, name: string) {
+    constructor(client: FsClient, nodeId: Id<ServerNode>, name: string) {
+        this.client = client;
+        this.nodeId = nodeId;
         this.name = name;
     }
 
-
     async getContent(): Promise<Uint8Array> {
-        return new Uint8Array();
+        const node = await this.client.getNode(this.nodeId);
+        if (node === null) {
+            throw FileSystemError.FileNotFound();
+        }
+        if ('Blob' in node.content) {
+            const blob = await this.client.getBlob(node.content.Blob.content);
+            if (blob === null) {
+                throw FileSystemError.FileNotFound('blob not found');
+            }
+            return blob;
+        }
+        if ('Text' in node.content) {
+            const text = node.content.Text.lines.map(l => l.text).join('\n');
+            return new TextEncoder().encode(text);
+        }
+        if ('Symlink' in node.content) {
+            return new TextEncoder().encode(node.content.Symlink.target);
+        }
+        if ('Directory' in node.content) {
+            throw FileSystemError.FileNotADirectory();
+        }
+        throw FileSystemError.Unavailable('Unknown file type');
     }
 
     async getStat(): Promise<FileStat> {

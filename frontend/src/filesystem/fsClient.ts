@@ -3,6 +3,7 @@ import {FullNode} from "../server-types/FullNode.ts";
 import {NodeInfo} from "../server-types/NodeInfo.ts";
 import {Node} from "../server-types/Node.ts";
 import {Id} from "../server-types/Id.ts";
+import {BlobFile} from "../server-types/BlobFile.ts";
 
 export default class FsClient {
     readonly gitCommits: Map<string, Commit> = new Map();
@@ -60,6 +61,13 @@ export default class FsClient {
         const data = await response.json() as NodeInfo;
         this.nodes.set(data._id.$oid, data);
         return data;
+    }
 
+    async getBlob(blobId: Id<Node>): Promise<Uint8Array | null> {
+        const response = await fetch(`http://localhost:3000/fs/blobs/${blobId.$oid}`);
+        if (response.status === 404) {
+            return null;
+        }
+        return new Uint8Array(await response.arrayBuffer());
     }
 }

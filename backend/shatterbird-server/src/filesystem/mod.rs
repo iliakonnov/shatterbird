@@ -4,22 +4,21 @@ use std::collections::HashMap;
 use std::str::FromStr;
 use std::sync::Arc;
 
+use axum::{Json, Router};
 use axum::extract::{Path, Query, State};
 use axum::routing::get;
-use axum::{Json, Router};
 use futures::TryStreamExt;
-use gix_hash::oid;
 use mongodb::bson::doc;
 use mongodb::bson::oid::ObjectId;
 use serde::{Deserialize, Serialize};
-use shatterbird_storage::Model;
 
+use shatterbird_storage::Model;
 use shatterbird_storage::model::{BlobFile, Commit, FileContent, Id, Node};
 
-use crate::filesystem::model::{ContentKind, EitherNode, ExpandedFileContent, FullNode, NodeInfo};
+use crate::filesystem::model::{EitherNode, ExpandedFileContent, FullNode, NodeInfo};
+use crate::ServerState;
 use crate::state::AppState;
 use crate::utils::{AppResult, May404};
-use crate::ServerState;
 
 mod model;
 
