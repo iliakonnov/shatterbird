@@ -28,13 +28,9 @@ export class DirNode implements DirectoryLike {
 
         const result = []
         for (let key of Object.keys(node.content.Directory.children)) {
-            const id = node.content.Directory.children[key];
-            const child = await this.client.getNodeShort(id);
-            if (child == null) {
-                continue;
-            }
+            const child = node.content.Directory.children[key];
             if (child.kind == 'Text' || child.kind == 'Blob') {
-                result.push(new FileNode(id.$oid, key));
+                result.push(new FileNode(child._id.$oid, key));
             } else if (child.kind == 'Directory') {
                 result.push(new DirNode(this.client, child._id, key));
             }

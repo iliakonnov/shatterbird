@@ -1,5 +1,6 @@
 //! https://code.visualstudio.com/api/references/vscode-api#FileSystemProvider
 
+use std::collections::HashMap;
 use std::str::FromStr;
 use std::sync::Arc;
 
@@ -15,7 +16,7 @@ use shatterbird_storage::Model;
 
 use shatterbird_storage::model::{BlobFile, Commit, FileContent, Id, Node};
 
-use crate::filesystem::model::{EitherNode, FullNode, NodeInfo};
+use crate::filesystem::model::{ContentKind, EitherNode, ExpandedFileContent, FullNode, NodeInfo};
 use crate::state::AppState;
 use crate::utils::{AppResult, May404};
 use crate::ServerState;
@@ -52,19 +53,40 @@ async fn get_node(state: &ServerState, id: Id<Node>, is_short: bool) -> AppResul
         return Ok(EitherNode::Short(info));
     }
 
-    let text = match &node.content {
-        FileContent::Text { lines, .. } => {
-            let lines = state.storage.get_all(&lines[..]).await?;
-            Some(lines.into_iter().map(|ln| ln.text).collect())
+    let content = match node.content {
+        FileContent::Symlink { target } => ExpandedFileContent::Symlink { target },
+        FileContent::Blob { size, content } => ExpandedFileContent::Blob { size, content },
+        FileContent::Directory { children } => {
+            let children_ids: Vec<_> = children.values().copied().collect();
+            let children_nodes = state
+                .storage
+                .get_all(&children_ids[..])
+                .await?
+                .into_iter()
+                .map(|c| (c._id, c))
+                .collect::<HashMap<_, _>>();
+            ExpandedFileContent::Directory {
+                children: children
+                    .into_iter()
+                    .filter_map(|(k, id)| {
+                        children_nodes
+                            .get(&id)
+                            .map(|node| NodeInfo {
+                                _id: node._id,
+                                kind: (&node.content).into(),
+                            })
+                            .map(|node| (k, node))
+                    })
+                    .collect(),
+            }
         }
-        _ => None,
+        FileContent::Text { size, lines } => {
+            let lines = state.storage.get_all(&lines[..]).await?;
+            ExpandedFileContent::Text { size, lines }
+        }
     };
 
-    Ok(EitherNode::Full(FullNode {
-        info,
-        content: node.content,
-        text,
-    }))
+    Ok(EitherNode::Full(FullNode { info, content }))
 }
 
 #[axum::debug_handler(state = Arc<ServerState>)]
@@ -180,10 +202,6 @@ async fn get_commit_by_git(
         Err(_) => return Ok(May404(None)),
     };
     Ok(May404(
-        state
-            .storage
-            .get_by_oid::<Commit>(oid)
-            .await?
-            .map(Json),
+        state.storage.get_by_oid::<Commit>(oid).await?.map(Json),
     ))
 }

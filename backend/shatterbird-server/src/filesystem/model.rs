@@ -1,10 +1,11 @@
+use std::collections::HashMap;
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use axum::Json;
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 use shatterbird_storage::ts;
-use shatterbird_storage::model::{FileContent, Id, Node};
+use shatterbird_storage::model::{BlobFile, FileContent, Id, Line, Node};
 
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export)]
@@ -19,8 +20,27 @@ pub enum EitherNode {
 pub struct FullNode {
     #[serde(flatten)]
     pub info: NodeInfo,
-    pub content: FileContent,
-    pub text: Option<Vec<String>>,
+    pub content: ExpandedFileContent,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export)]
+pub enum ExpandedFileContent {
+    Symlink {
+        target: String,
+    },
+    Directory {
+        children: HashMap<String, NodeInfo>,
+    },
+    Text {
+        size: u64,
+        lines: Vec<Line>,
+    },
+    Blob {
+        size: u64,
+        #[ts(as = "ts::Id<BlobFile>")]
+        content: Id<BlobFile>,
+    },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
