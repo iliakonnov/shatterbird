@@ -5,7 +5,7 @@ use eyre::eyre;
 use futures::FutureExt;
 use gix::object::Kind;
 use gix::Repository;
-use tracing::{debug, debug_span, instrument, Instrument, warn};
+use tracing::{debug, debug_span, instrument, warn, Instrument};
 
 use shatterbird_storage::model::{BlobFile, Commit, FileContent, Line, Node};
 use shatterbird_storage::{Id, Model, Storage};
@@ -143,11 +143,7 @@ impl<'s, 'r> Walker<'_, 'r> {
         }
 
         async {
-            if let Some(x) = self
-                .storage
-                .get_by_oid::<Commit>(commit.id)
-                .await?
-            {
+            if let Some(x) = self.storage.get_by_oid::<Commit>(commit.id).await? {
                 debug!("skipping existing commit");
                 return Ok(x.id());
             }
@@ -160,7 +156,9 @@ impl<'s, 'r> Walker<'_, 'r> {
             };
             self.storage.insert_one(&commit).await?;
             Ok(commit.id)
-        }.instrument(span).await
+        }
+        .instrument(span)
+        .await
     }
 }
 

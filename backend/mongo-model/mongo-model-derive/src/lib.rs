@@ -1,10 +1,12 @@
 extern crate proc_macro;
 use darling::FromDeriveInput;
-use proc_macro::{TokenStream};
-use proc_macro2::Span;
+use proc_macro::TokenStream;
 use quote::{format_ident, quote};
 use syn::visit_mut::VisitMut;
-use syn::{parse_macro_input, parse_quote, DataStruct, DeriveInput, Field, Ident, Path, PathArguments, PathSegment, Type, TypePath, Token};
+use syn::{
+    parse_macro_input, parse_quote, DataStruct, DeriveInput, Field, Path, PathArguments,
+    PathSegment, Type, TypePath,
+};
 
 #[derive(Default, FromDeriveInput)]
 #[darling(attributes(mongo_model))]
@@ -15,7 +17,7 @@ struct Options {
 fn sanitize_type(root: &Type, ty: &mut Type) {
     struct Visitor<'a> {
         root: &'a Type,
-    };
+    }
 
     impl VisitMut for Visitor<'_> {
         fn visit_type_mut(&mut self, i: &mut Type) {
@@ -24,7 +26,7 @@ fn sanitize_type(root: &Type, ty: &mut Type) {
                 Type::Path(TypePath {
                     path:
                         Path {
-                            leading_colon: Option::None,
+                            leading_colon: None,
                             segments,
                             ..
                         },
@@ -55,11 +57,7 @@ fn sanitize_type(root: &Type, ty: &mut Type) {
 fn process(input: DeriveInput) -> Result<TokenStream, darling::Error> {
     let Options { collection } = Options::from_derive_input(&input)?;
 
-    let DeriveInput {
-        ident,
-        data,
-        ..
-    } = input;
+    let DeriveInput { ident, data, .. } = input;
 
     let DataStruct { fields, .. } = match data {
         syn::Data::Struct(s) => s,
@@ -79,7 +77,6 @@ fn process(input: DeriveInput) -> Result<TokenStream, darling::Error> {
         |Field {
              ident: field,
              ty,
-             attrs,
              ..
          }| {
             let mut ty = ty.clone();
@@ -103,17 +100,18 @@ fn process(input: DeriveInput) -> Result<TokenStream, darling::Error> {
             let mut ty = ty.clone();
             sanitize_type(&struct_ty, &mut ty);
             let serde_attrs = attrs
-                .into_iter()
+                .iter()
                 .filter(|a| {
                     a.meta
                         .path()
                         .get_ident()
-                        .map(|i| i.to_string() == "serde")
+                        .map(|i| *i == "serde")
                         .unwrap_or_default()
                 })
                 .collect::<Vec<_>>();
             quote! {
                 #[derive(::mongo_model::serde::Serialize, ::mongo_model::serde::Deserialize)]
+                #[allow(non_camel_case_types)]
                 struct #field {
                     #(#serde_attrs)*
                     val: #ty,
@@ -129,7 +127,6 @@ fn process(input: DeriveInput) -> Result<TokenStream, darling::Error> {
         |Field {
              ident: field,
              ty,
-             attrs,
              ..
          }| {
             let mut ty = ty.clone();

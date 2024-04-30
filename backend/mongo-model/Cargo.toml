@@ -6,8 +6,8 @@ edition = "2021"
 [lib]
 
 [dependencies]
-mongo-model-derive = { path = "./mongo-model-derive" }
-serde = { version = "1.0.197", features = ["derive"] }
 bson = "2.10.0"
 derive-where = "1.2.7"
+mongo-model-derive = { path = "./mongo-model-derive" }
+serde = { version = "1.0.197", features = ["derive"] }
 ts-rs = "8.1.0"

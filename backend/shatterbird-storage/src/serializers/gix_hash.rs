@@ -1,5 +1,5 @@
-use std::str::FromStr;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use std::str::FromStr;
 
 pub fn serialize<S: Serializer>(id: &gix_hash::ObjectId, s: S) -> Result<S::Ok, S::Error> {
     id.to_string().serialize(s)

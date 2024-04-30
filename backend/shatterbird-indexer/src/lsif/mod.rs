@@ -1,10 +1,8 @@
-use std::path::Path;
-use bumpalo::Bump;
-use serde_json::de::Read;
-use tracing::{info, instrument};
-use shatterbird_storage::Storage;
 use crate::lsif::converter::Converter;
 use crate::lsif::graph::Graph;
+use bumpalo::Bump;
+use shatterbird_storage::Storage;
+use tracing::{info, instrument};
 
 mod converter;
 mod graph;
@@ -26,7 +24,7 @@ pub async fn load_lsif<R: std::io::BufRead>(storage: &Storage, input: R) -> eyre
     converter.load().await?;
 
     info!("saving");
-    converter.save(&storage).await?;
-    
+    converter.save(storage).await?;
+
     Ok(())
 }

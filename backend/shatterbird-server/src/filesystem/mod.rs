@@ -4,22 +4,22 @@ use std::collections::HashMap;
 use std::str::FromStr;
 use std::sync::Arc;
 
-use axum::{Json, Router};
 use axum::extract::{Path, Query, State};
 use axum::routing::get;
+use axum::{Json, Router};
 use futures::TryStreamExt;
 use log::warn;
 use mongodb::bson::doc;
 use mongodb::bson::oid::ObjectId;
 use serde::{Deserialize, Serialize};
 
-use shatterbird_storage::Id;
 use shatterbird_storage::model::{BlobFile, Commit, FileContent, Line, Node};
+use shatterbird_storage::Id;
 
 use crate::filesystem::model::{EitherNode, ExpandedFileContent, FullNode, NodeInfo};
-use crate::ServerState;
 use crate::state::AppState;
 use crate::utils::{AppResult, May404};
+use crate::ServerState;
 
 mod model;
 
@@ -201,8 +201,8 @@ async fn get_commit_by_git(
         Ok(x) => x,
         Err(e) => {
             warn!("invalid commit id {}: {}", commit, e);
-            return Ok(May404(None))
-        },
+            return Ok(May404(None));
+        }
     };
     Ok(May404(
         state.storage.get_by_oid::<Commit>(oid).await?.map(Json),

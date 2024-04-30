@@ -1,4 +1,4 @@
-use crate::{Model, ModelBounds};
+use crate::{Model};
 use bson::oid::ObjectId;
 use bson::Bson;
 use derive_where::{derive_where, DeriveWhere};

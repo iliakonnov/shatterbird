@@ -1,11 +1,11 @@
-use std::collections::HashMap;
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use axum::Json;
 use serde::{Deserialize, Serialize};
-use ts_rs::TS;
-use shatterbird_storage::{ts, Id};
 use shatterbird_storage::model::{BlobFile, FileContent, Line, Node};
+use shatterbird_storage::{ts, Id};
+use std::collections::HashMap;
+use ts_rs::TS;
 
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export)]
@@ -46,7 +46,7 @@ pub enum ExpandedFileContent {
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export)]
 pub struct NodeInfo {
-    #[ts(as="ts::Id<Node>")]
+    #[ts(as = "ts::Id<Node>")]
     pub _id: Id<Node>,
     pub kind: ContentKind,
 }

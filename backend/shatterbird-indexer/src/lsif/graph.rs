@@ -13,17 +13,15 @@ macro_rules! entry_ref {
     ($name:ident, $func:ident -> $ty:ty, $pat:pat => $val:expr) => {
         #[derive(Copy, Clone)]
         pub struct $name<'a> {
-            entry: &'a Entry
+            entry: &'a Entry,
         }
 
         impl<'a> $name<'a> {
             pub const fn new(entry: &'a Entry) -> Option<Self> {
                 match &entry.data {
                     #[allow(unused_variables)]
-                    $pat => Some(Self {
-                        entry
-                    }),
-                    _ => None
+                    $pat => Some(Self { entry }),
+                    _ => None,
                 }
             }
 
@@ -34,9 +32,7 @@ macro_rules! entry_ref {
             pub const fn $func(self) -> &'a $ty {
                 match &self.entry.data {
                     $pat => $val,
-                    _ => unsafe {
-                        std::hint::unreachable_unchecked()
-                    }
+                    _ => unsafe { std::hint::unreachable_unchecked() },
                 }
             }
         }
@@ -75,7 +71,7 @@ impl<'a> Graph<'a> {
         };
         match &entry.data {
             Element::Vertex(v) => {
-                if let Vertex::Document(doc) = v {
+                if let Vertex::Document(_) = v {
                     self.documents.push(DocumentRef::new(entry).unwrap());
                 }
                 self.vertices.insert(id, VertexRef::new(entry).unwrap());
@@ -83,7 +79,8 @@ impl<'a> Graph<'a> {
             Element::Edge(e) => {
                 // out_v -> { in_vs }
                 e.edge_data().each().for_each(|edge| {
-                    self.outgoing.insert(edge.out_v.clone(), EdgeRef::new(entry).unwrap());
+                    self.outgoing
+                        .insert(edge.out_v.clone(), EdgeRef::new(entry).unwrap());
                 })
             }
         }

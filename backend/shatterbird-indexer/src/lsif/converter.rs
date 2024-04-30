@@ -5,7 +5,7 @@ use futures::TryFutureExt;
 use rayon::prelude::*;
 use scc::{Bag, HashMap};
 use tokio::io::AsyncReadExt;
-use tracing::{debug, debug_span, info, info_span, instrument, Level, trace};
+use tracing::{debug, debug_span, info, info_span, instrument, trace, Level};
 
 use lsp_types::lsif;
 use shatterbird_storage::model::lang::{EdgeData, EdgeDataMultiIn, EdgeInfo, Item, VertexInfo};
@@ -45,10 +45,15 @@ impl<'a> Converter<'a> {
     #[instrument(skip_all, err)]
     pub async fn load(&self) -> eyre::Result<()> {
         // Mostly IO-bound part
-        let tasks = self.graph.documents().into_par_iter().map(|doc| {
-            let doc_id = doc.entry().id.clone();
-            self.load_doc(doc).map_ok(move |v| (doc_id, v))
-        }).collect_vec_list();
+        let tasks = self
+            .graph
+            .documents()
+            .into_par_iter()
+            .map(|doc| {
+                let doc_id = doc.entry().id.clone();
+                self.load_doc(doc).map_ok(move |v| (doc_id, v))
+            })
+            .collect_vec_list();
         let docs = join_all(tasks.into_iter().flatten())
             .await
             .into_iter()
@@ -137,7 +142,7 @@ impl<'a> Converter<'a> {
                 doc_id.clone(),
                 Node {
                     id: Id::new(),
-                    oid: gix::ObjectId::empty_blob(gix::hash::Kind::Sha1),  // TODO: Reuse objects from Git
+                    oid: gix::ObjectId::empty_blob(gix::hash::Kind::Sha1), // TODO: Reuse objects from Git
                     content: FileContent::Text {
                         size: content.bytes().len() as u64,
                         lines,
@@ -158,12 +163,25 @@ impl<'a> Converter<'a> {
             )
             .await;
 
-        self.graph.outgoing_from(&doc_id)
+        self.graph
+            .outgoing_from(&doc_id)
             .into_par_iter()
-            .filter_map(|edge| if let lsif::Edge::Contains(data) = edge.edge() { Some (data)} else { None })
+            .filter_map(|edge| {
+                if let lsif::Edge::Contains(data) = edge.edge() {
+                    Some(data)
+                } else {
+                    None
+                }
+            })
             .flat_map(|data| &data.in_vs)
             .filter_map(|vertex| self.graph.vertex(vertex))
-            .filter_map(|vertex| if let lsif::Vertex::Range { range, ..} = vertex.vertex() { Some((vertex, range)) } else { None })
+            .filter_map(|vertex| {
+                if let lsif::Vertex::Range { range, .. } = vertex.vertex() {
+                    Some((vertex, range))
+                } else {
+                    None
+                }
+            })
             .map(|(vertex, range)| self.load_range(&doc_id, vertex, range))
             .collect::<Result<Vec<_>, _>>()?;
         Ok(vertex_id)
@@ -183,7 +201,8 @@ impl<'a> Converter<'a> {
     #[instrument(level = Level::DEBUG, skip_all, ret, err, fields(out_v = %out_v, edge_id = ?edge.entry().id))]
     fn load_edge(&self, out_v: Id<Vertex>, edge: EdgeRef<'_>) -> eyre::Result<Option<Id<Edge>>> {
         trace!("loading edge {:?}", edge.entry().id);
-        let in_vs = edge.edge()
+        let in_vs = edge
+            .edge()
             .edge_data()
             .par_each()
             .filter(|data| !self.vertices.contains(data.in_v))
@@ -194,7 +213,7 @@ impl<'a> Converter<'a> {
         let in_vs = in_vs
             .into_par_iter()
             .flatten()
-            .map(|data| { self.visit_edge(data) })
+            .map(|data| self.visit_edge(data))
             .collect::<Result<Vec<_>, _>>()?
             .par_iter()
             .flatten()
@@ -215,7 +234,7 @@ impl<'a> Converter<'a> {
 
         let id = Id::new();
         self.edges.push(Edge {
-            id: id,
+            id,
             data: match edge.edge() {
                 lsif::Edge::Contains(_x) => EdgeInfo::Contains(edge_data_multi),
                 lsif::Edge::Moniker(_x) => EdgeInfo::Moniker(edge_data),
@@ -282,7 +301,7 @@ impl<'a> Converter<'a> {
             lsif::Vertex::MetaData(x) => VertexInfo::MetaData(x),
             lsif::Vertex::Project(x) => VertexInfo::Project(x),
             lsif::Vertex::Document(x) => VertexInfo::Document(x),
-            lsif::Vertex::Range { range, tag } => {
+            lsif::Vertex::Range { tag, .. } => {
                 let range = match self.ranges.get(&vertex.entry().id) {
                     Some(x) => x,
                     None => return Err(eyre::eyre!("range {:?} is not loaded", vertex.entry())),
@@ -316,7 +335,7 @@ impl<'a> Converter<'a> {
             },
         };
         let id = Id::new();
-        _ = self.vertices.insert(v.clone(), Vertex { id: id, data });
+        _ = self.vertices.insert(v.clone(), Vertex { id, data });
         Ok(Some(id))
     }
 
@@ -331,7 +350,7 @@ impl<'a> Converter<'a> {
 
         let id = Id::new();
         let line = Line {
-            id: id,
+            id,
             text: line.to_string(),
         };
         let key = LineKey {
@@ -382,14 +401,12 @@ impl<'a> Converter<'a> {
 
         let id = Id::new();
         let range = Range {
-            id: id,
+            id,
             line_id,
             start: range.start.character,
             end,
         };
-        _ = self
-            .ranges
-            .insert(vertex.entry().id.clone(), range);
+        _ = self.ranges.insert(vertex.entry().id.clone(), range);
         Ok(id)
     }
 }

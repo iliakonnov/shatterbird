@@ -1,7 +1,7 @@
-use std::iter;
 use either::Either;
 use lsp_types::lsif::{Edge, EdgeData, EdgeDataMultiIn, Id};
 use rayon::iter::{IndexedParallelIterator, IntoParallelRefIterator, ParallelIterator};
+use std::iter;
 
 #[derive(Clone, Copy, Debug)]
 pub struct EdgeDataRef<'a> {
@@ -26,7 +26,7 @@ impl<'a> EitherEdgeData<'a> {
             }
         }
     }
-    
+
     pub fn each(self) -> impl Iterator<Item = EdgeDataRef<'a>> {
         match self {
             EitherEdgeData::Single(EdgeData { in_v, out_v }) => {
