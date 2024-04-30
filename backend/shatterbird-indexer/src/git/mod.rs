@@ -4,8 +4,8 @@ use std::path::Path;
 use eyre::eyre;
 use futures::FutureExt;
 use gix::object::Kind;
-use gix::{Repository};
-use tracing::{debug, instrument, warn};
+use gix::Repository;
+use tracing::{debug, debug_span, instrument, Instrument, warn};
 
 use shatterbird_storage::model::{BlobFile, Commit, FileContent, Line, Node};
 use shatterbird_storage::{Id, Model, Storage};
@@ -106,14 +106,17 @@ impl<'s, 'r> Walker<'_, 'r> {
         Ok(result.id())
     }
 
-    #[instrument(skip_all, fields(commit = %commit.id), err)]
     async fn visit_commit(
         &self,
         commit: gix::Commit<'r>,
         max_depth: u32,
     ) -> eyre::Result<Id<Commit>> {
-        let tree = commit.tree()?;
-        let commit_info = commit.decode()?;
+        let span = debug_span!("visit_commit", commit = %commit.id);
+
+        let (tree, commit_info) = {
+            let _guard = span.enter();
+            (commit.tree()?, commit.decode()?)
+        };
 
         let mut parents = Vec::new();
         if max_depth == 0 {
@@ -139,19 +142,25 @@ impl<'s, 'r> Walker<'_, 'r> {
             }
         }
 
-        if let Some(x) = self.storage.get_by_oid::<Commit>(commit.id).await? {
-            debug!("skipping existing commit");
-            return Ok(x.id());
-        }
+        async {
+            if let Some(x) = self
+                .storage
+                .get_by_oid::<Commit>(commit.id)
+                .await?
+            {
+                debug!("skipping existing commit");
+                return Ok(x.id());
+            }
 
-        let commit = Commit {
-            id: Id::new(),
-            oid: commit.id,
-            root: self.visit_tree(tree).await?,
-            parents,
-        };
-        self.storage.insert_one(&commit).await?;
-        Ok(commit.id)
+            let commit = Commit {
+                id: Id::new(),
+                oid: commit.id,
+                root: self.visit_tree(tree).await?,
+                parents,
+            };
+            self.storage.insert_one(&commit).await?;
+            Ok(commit.id)
+        }.instrument(span).await
     }
 }
 
