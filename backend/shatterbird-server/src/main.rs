@@ -10,11 +10,9 @@ use tracing::instrument;
 use tracing_error::ErrorLayer;
 use tracing_subscriber::{prelude::*, registry::Registry};
 
-mod api;
 mod filesystem;
 mod language_server;
 mod settings;
-mod source_control;
 mod state;
 pub mod utils;
 
@@ -40,8 +38,8 @@ async fn main() -> eyre::Result<()> {
     let listener = tokio::net::TcpListener::bind(&settings.addr).await?;
     let router = Router::new()
         .layer(tower_http::trace::TraceLayer::new_for_http())
-        .nest("/api", api::router())
         .nest("/fs", filesystem::router())
+        .nest("/lsp", language_server::router())
         .fallback(|| async { (StatusCode::NOT_FOUND, "unknown route") })
         .with_state(state)
         .layer(tower_http::cors::CorsLayer::permissive());
