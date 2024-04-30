@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::fmt::{Display, Formatter};
 use std::marker::PhantomData;
+use std::str::FromStr;
 
 #[derive(Serialize, Deserialize, DeriveWhere)]
 #[derive_where(Default, Debug, Copy, Clone, PartialEq, PartialOrd, Eq, Ord, Hash)]
@@ -49,5 +50,13 @@ impl<T: Model + ?Sized> From<Id<T>> for ObjectId {
 impl<T: Model + ?Sized> From<Id<T>> for Bson {
     fn from(id: Id<T>) -> Self {
         id.id.into()
+    }
+}
+
+impl<T: Model + ?Sized> FromStr for Id<T> {
+    type Err = bson::oid::Error;
+    
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        ObjectId::from_str(s).map(|id| id.into())
     }
 }

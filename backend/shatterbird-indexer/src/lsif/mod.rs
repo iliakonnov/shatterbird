@@ -1,15 +1,24 @@
+use std::str::FromStr;
 use crate::lsif::converter::Converter;
 use crate::lsif::graph::Graph;
 use bumpalo::Bump;
-use shatterbird_storage::Storage;
+use eyre::{eyre, OptionExt};
+use shatterbird_storage::{Id, Storage};
 use tracing::{info, instrument};
+use shatterbird_storage::model::Commit;
 
 mod converter;
 mod graph;
 mod lsif_ext;
 
+#[derive(Debug, Clone)]
+pub struct RootMapping {
+    pub dir: String,
+    pub node: Id<Commit>,
+}
+
 #[instrument(skip_all)]
-pub async fn load_lsif<R: std::io::BufRead>(storage: &Storage, input: R) -> eyre::Result<()> {
+pub async fn load_lsif<R: std::io::BufRead>(storage: &Storage, input: R, roots: Vec<RootMapping>) -> eyre::Result<()> {
     info!("parsing graph");
     let arena = Bump::new();
     let mut graph = Graph::new(&arena);
@@ -20,11 +29,22 @@ pub async fn load_lsif<R: std::io::BufRead>(storage: &Storage, input: R) -> eyre
     }
 
     info!("converting graph");
-    let converter = Converter::new(&graph);
+    let converter = Converter::new(storage, &graph, roots);
     converter.load().await?;
 
     info!("saving");
-    converter.save(storage).await?;
+    converter.save().await?;
 
     Ok(())
+}
+
+impl FromStr for RootMapping {
+    type Err = eyre::Report;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let (dir, node) = s.rsplit_once('=').ok_or_eyre("invalid root mapping")?;
+        let dir = dir.to_string();
+        let node = node.parse().map_err(|e| eyre!("failed to parse node id: {e}"))?;
+        Ok(RootMapping { dir, node })
+    }
 }

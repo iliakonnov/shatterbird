@@ -1,15 +1,17 @@
+use eyre::{eyre, OptionExt};
 use futures::future::join_all;
 use std::hash::Hash;
 
-use futures::TryFutureExt;
+use futures::FutureExt;
 use rayon::prelude::*;
 use scc::{Bag, HashMap};
-use tokio::io::AsyncReadExt;
-use tracing::{debug, debug_span, info, info_span, instrument, trace, Level};
+use tracing::{debug, debug_span, info, info_span, instrument, trace, warn, Level};
 
+use crate::lsif::RootMapping;
 use lsp_types::lsif;
+use radix_trie::{Trie, TrieCommon};
 use shatterbird_storage::model::lang::{EdgeData, EdgeDataMultiIn, EdgeInfo, Item, VertexInfo};
-use shatterbird_storage::model::{Edge, FileContent, Line, Node, Range, Vertex};
+use shatterbird_storage::model::{Commit, Edge, FileContent, Line, Node, Range, Vertex};
 use shatterbird_storage::{Id, Model, Storage};
 
 use super::graph::{DocumentRef, EdgeRef, Graph, VertexRef};
@@ -21,8 +23,10 @@ struct LineKey {
     line_no: u64,
 }
 
-pub struct Converter<'a> {
-    graph: &'a Graph<'a>,
+pub struct Converter<'g, 's> {
+    storage: &'s Storage,
+    graph: &'g Graph<'g>,
+    roots: Trie<String, Id<Commit>>,
     files: HashMap<lsif::Id, Node>,
     lines: HashMap<LineKey, Line>,
     ranges: HashMap<lsif::Id, Range>,
@@ -30,10 +34,12 @@ pub struct Converter<'a> {
     edges: Bag<Edge>,
 }
 
-impl<'a> Converter<'a> {
-    pub fn new(graph: &'a Graph) -> Self {
+impl<'g, 's> Converter<'g, 's> {
+    pub fn new(storage: &'s Storage, graph: &'g Graph, roots: Vec<RootMapping>) -> Self {
         Converter {
+            storage,
             graph,
+            roots: roots.into_iter().map(|x| (x.dir, x.node)).collect(),
             files: HashMap::new(),
             lines: HashMap::new(),
             ranges: HashMap::new(),
@@ -51,12 +57,17 @@ impl<'a> Converter<'a> {
             .into_par_iter()
             .map(|doc| {
                 let doc_id = doc.entry().id.clone();
-                self.load_doc(doc).map_ok(move |v| (doc_id, v))
+                self.load_doc(doc).map(|x| (doc_id, x))
             })
             .collect_vec_list();
         let docs = join_all(tasks.into_iter().flatten())
             .await
             .into_iter()
+            .filter_map(|(doc_id, x)| match x {
+                Ok(None) => None,
+                Ok(Some(x)) => Some(Ok((doc_id, x))),
+                Err(e) => Some(Err(e)),
+            })
             .collect::<Result<Vec<_>, _>>()?;
 
         // CPU-bound part
@@ -67,30 +78,8 @@ impl<'a> Converter<'a> {
     }
 
     #[instrument(skip_all, err)]
-    pub async fn save(self, storage: &Storage) -> eyre::Result<()> {
+    pub async fn save(self) -> eyre::Result<()> {
         tokio::try_join!(
-            async {
-                let _span = info_span!("saving files").entered();
-                let mut files = Vec::new();
-                let mut next = self.files.first_entry_async().await;
-                while let Some(curr) = next {
-                    files.push(curr.get().clone());
-                    next = curr.next_async().await
-                }
-                info!("saving {} files", files.len());
-                storage.insert_many(files.iter()).await
-            },
-            async {
-                let _span = info_span!("saving lines").entered();
-                let mut lines = Vec::new();
-                let mut next = self.lines.first_entry_async().await;
-                while let Some(curr) = next {
-                    lines.push(curr.get().clone());
-                    next = curr.next_async().await
-                }
-                info!("saving {} lines", lines.len());
-                storage.insert_many(lines.iter()).await
-            },
             async {
                 let _span = info_span!("saving vertices").entered();
                 let mut vertices = Vec::new();
@@ -100,12 +89,12 @@ impl<'a> Converter<'a> {
                     next = curr.next_async().await
                 }
                 info!("saving {} vertices", vertices.len());
-                storage.insert_many(vertices.iter()).await
+                self.storage.insert_many(vertices.iter()).await
             },
             async {
                 let _span = info_span!("saving edges").entered();
                 info!("saving {} edges", self.edges.len());
-                storage
+                self.storage
                     .access()
                     .insert_many(self.edges.into_iter(), None)
                     .await?;
@@ -116,40 +105,77 @@ impl<'a> Converter<'a> {
     }
 
     #[instrument(level = Level::DEBUG, skip_all, ret, err, fields(doc_id = ?doc.entry().id, uri = doc.document().uri.to_string()))]
-    async fn load_doc(&self, doc: DocumentRef<'_>) -> eyre::Result<Id<Vertex>> {
+    async fn load_doc(&self, doc: DocumentRef<'_>) -> eyre::Result<Option<Id<Vertex>>> {
         debug!("loading doc {:?}", doc.entry());
         let doc_id = doc.entry().id.clone();
         let doc = doc.document();
         eyre::ensure!(doc.uri.scheme().to_ascii_lowercase() == "file");
 
-        let mut file = tokio::fs::File::open(doc.uri.path()).await?;
-        let mut content = String::new();
-        file.read_to_string(&mut content).await?;
-
-        let lines = {
-            let mut lines = Vec::new();
-            for (line_no, line) in content.split('\n').enumerate() {
-                lines.push(self.load_line(&doc_id, line, line_no as u64));
+        let path = doc.uri.path();
+        let trie_node = match self.roots.get_ancestor(path) {
+            Some(x) => x,
+            None => {
+                warn!("no root found for a document {}", path);
+                return Ok(None);
             }
-            join_all(lines)
-                .await
-                .into_iter()
-                .collect::<Result<Vec<_>, _>>()?
         };
-        _ = self
-            .files
-            .insert_async(
-                doc_id.clone(),
-                Node {
-                    id: Id::new(),
-                    oid: gix::ObjectId::empty_blob(gix::hash::Kind::Sha1), // TODO: Reuse objects from Git
-                    content: FileContent::Text {
-                        size: content.bytes().len() as u64,
-                        lines,
-                    },
-                },
-            )
-            .await;
+        let prefix = trie_node
+            .key()
+            .expect("trie key is present when trie node is found");
+        let root = trie_node
+            .value()
+            .copied()
+            .expect("trie value is present when trie node is found");
+        let suffix = path
+            .strip_prefix(prefix)
+            .expect("path starts with prefix since prefix is ancestor of path");
+
+        trace!(
+            "searching for {} in {} ({}) with suffix {}",
+            path,
+            prefix,
+            root,
+            suffix
+        );
+
+        let mut curr = self
+            .storage
+            .get(root)
+            .await?
+            .ok_or_eyre(eyre!("commit {} not found in DB", root))?
+            .root;
+        for segment in suffix.split('/') {
+            if segment.is_empty() {
+                continue;
+            }
+            let node = self
+                .storage
+                .get(curr)
+                .await?
+                .ok_or_eyre(eyre!("node {} not found in DB", root))?;
+            curr = match node.content {
+                FileContent::Directory { children, .. } => children
+                    .get(segment)
+                    .copied()
+                    .ok_or_eyre(eyre!("can't find segment {}", segment))?,
+                _ => return Err(eyre::eyre!("node {:?} is not a directory", curr.id)),
+            };
+        }
+
+        let node = self
+            .storage
+            .get(curr)
+            .await?
+            .ok_or_eyre(eyre!("file {} not found in DB", root))?;
+        let file = match node {
+            Node {
+                content: FileContent::Text { .. },
+                ..
+            } => node,
+            _ => return Err(eyre::eyre!("file {:?} is not a text document", curr.id)),
+        };
+
+        _ = self.files.insert_async(doc_id.clone(), file).await;
 
         let vertex_id = Id::new();
         _ = self
@@ -184,7 +210,7 @@ impl<'a> Converter<'a> {
             })
             .map(|(vertex, range)| self.load_range(&doc_id, vertex, range))
             .collect::<Result<Vec<_>, _>>()?;
-        Ok(vertex_id)
+        Ok(Some(vertex_id))
     }
 
     #[instrument(skip(self), err)]
