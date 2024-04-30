@@ -25,11 +25,15 @@ struct Args {
 enum Command {
     Lsif {
         #[arg(long)]
-        input: PathBuf
+        input: PathBuf,
     },
     Git {
         #[arg(long)]
-        root: PathBuf
+        root: PathBuf,
+
+        #[arg(long)]
+        #[arg(default_value = "10")]
+        max_depth: u32,
     }
 }
 
@@ -58,8 +62,8 @@ async fn main() -> eyre::Result<()> {
                 lsif::load_lsif(&storage, file).await?;
             }
         },
-        Command::Git { root } => {
-            git::index(&storage, &root).await?;
+        Command::Git { root, max_depth } => {
+            git::index(&storage, &root, max_depth).await?;
         }
     }
 

@@ -1,14 +1,11 @@
 use std::collections::HashMap;
 use std::path::Path;
 
-use bson::doc;
 use eyre::eyre;
-use futures::{FutureExt, StreamExt};
+use futures::FutureExt;
 use gix::object::Kind;
-use gix::traverse::tree::Visit;
-use gix::{ObjectId, Repository};
-use serde::Serialize;
-use tracing::{debug, info, instrument, warn};
+use gix::{Repository};
+use tracing::{debug, instrument, warn};
 
 use shatterbird_storage::model::{BlobFile, Commit, FileContent, Line, Node};
 use shatterbird_storage::{Id, Model, Storage};
@@ -29,29 +26,21 @@ impl<'s, 'r> Walker<'_, 'r> {
         let mut children = HashMap::new();
         for entry in data.entries {
             let child = self.repo.find_object(entry.oid)?;
-            let child_id =
-                match child.kind {
-                    Kind::Tree => {
-                        self.visit_tree(child.try_into().map_err(|o: gix::Object| {
-                            eyre!("can't read object {} as a tree", o.id)
-                        })?)
+            let child_id = match child.kind {
+                Kind::Tree => {
+                    self.visit_tree(child.try_into_tree()?)
                         .boxed_local()
                         .await?
-                    }
-                    Kind::Blob => {
-                        self.visit_blob(child.try_into().map_err(|o: gix::Object| {
-                            eyre!("can't read object {} as a blob", o.id)
-                        })?)
-                        .await?
-                    }
-                    _ => {
-                        return Err(eyre!(
-                            "object {} is a {}, not a file or directory",
-                            child.id,
-                            child.kind
-                        ))
-                    }
-                };
+                }
+                Kind::Blob => self.visit_blob(child.try_into_blob()?).await?,
+                _ => {
+                    return Err(eyre!(
+                        "object {} is a {}, not a file or directory",
+                        child.id,
+                        child.kind
+                    ))
+                }
+            };
             children.insert(entry.filename.to_string(), child_id);
         }
         let result = Node {
@@ -116,46 +105,66 @@ impl<'s, 'r> Walker<'_, 'r> {
         self.storage.insert_one(&result).await?;
         Ok(result.id())
     }
+
+    #[instrument(skip_all, fields(commit = %commit.id), err)]
+    async fn visit_commit(
+        &self,
+        commit: gix::Commit<'r>,
+        max_depth: u32,
+    ) -> eyre::Result<Id<Commit>> {
+        let tree = commit.tree()?;
+        let commit_info = commit.decode()?;
+
+        let mut parents = Vec::new();
+        if max_depth == 0 {
+            for parent in commit_info.parents() {
+                let found = self.storage.get_by_oid::<Commit>(parent).await?;
+                let found = match found {
+                    Some(x) => x.id,
+                    None => {
+                        warn!("parent {:?} is not found in db, ignoring", parent);
+                        continue;
+                    }
+                };
+                parents.push(found)
+            }
+        } else {
+            for parent in commit_info.parents() {
+                let commit = self.repo.find_object(parent)?.try_into_commit()?;
+                parents.push(
+                    self.visit_commit(commit, max_depth - 1)
+                        .boxed_local()
+                        .await?,
+                );
+            }
+        }
+
+        if let Some(x) = self.storage.get_by_oid::<Commit>(commit.id).await? {
+            debug!("skipping existing commit");
+            return Ok(x.id());
+        }
+
+        let commit = Commit {
+            id: Id::new(),
+            oid: commit.id,
+            root: self.visit_tree(tree).await?,
+            parents,
+        };
+        self.storage.insert_one(&commit).await?;
+        Ok(commit.id)
+    }
 }
 
-pub async fn index(storage: &Storage, root: &Path) -> eyre::Result<()> {
+pub async fn index(storage: &Storage, root: &Path, max_depth: u32) -> eyre::Result<()> {
     let repo = gix::open(root)?;
     let mut head = repo.head()?;
     let commit = head.peel_to_commit_in_place()?;
-    let commit_info = commit.decode()?;
-    let tree = commit.tree()?;
-    
-    if let Some(_) = storage.get_by_oid::<Commit>(tree.id).await? {
-        info!("skipping existing commit");
-        return Ok(());
-    }
 
     let indexer = Walker {
         storage,
         repo: &repo,
     };
-    let root = indexer.visit_tree(tree).await?;
-
-    let mut parents = Vec::new();
-    for parent in commit_info.parents() {
-        let found = storage.get_by_oid::<Commit>(parent).await?;
-        let found = match found {
-            Some(x) => x,
-            None => {
-                warn!("parent {:?} is not found in db, ignoring", parent);
-                continue;
-            }
-        };
-        parents.push(found.id())
-    }
-
-    let commit = Commit {
-        id: Id::new(),
-        oid: commit.id,
-        root,
-        parents,
-    };
-    storage.insert_one(&commit).await?;
+    indexer.visit_commit(commit, max_depth).await?;
 
     Ok(())
 }
