@@ -246,10 +246,8 @@ impl<'g, 's> Converter<'g, 's> {
             .copied()
             .collect::<Vec<_>>();
         if in_vs.is_empty() {
-            return Err(eyre::eyre!(
-                "no incoming vertices found for edge {:?}",
-                edge.entry()
-            ));
+            warn!("no incoming vertices found for edge {:?}", edge.entry().id);
+            return Ok(None)
         }
 
         let edge_data = EdgeData {
@@ -330,7 +328,10 @@ impl<'g, 's> Converter<'g, 's> {
             lsif::Vertex::Range { tag, .. } => {
                 let range = match self.ranges.get(&vertex.entry().id) {
                     Some(x) => x,
-                    None => return Err(eyre::eyre!("range {:?} is not loaded", vertex.entry())),
+                    None => {
+                        warn!("range {:?} is not loaded, probably some documents are missing?", vertex.entry());
+                        return Ok(None)
+                    },
                 };
                 VertexInfo::Range {
                     range: range.get().id(),
