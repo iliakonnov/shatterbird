@@ -2095,6 +2095,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "lsp-types"
+version = "0.95.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8e34d33a8e9b006cd3fc4fe69a921affa097bae4bb65f76271f4644f9a334365"
+dependencies = [
+ "bitflags 1.3.2",
+ "serde",
+ "serde_json",
+ "serde_repr",
+ "url",
+]
+
+[[package]]
 name = "match_cfg"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2896,7 +2909,7 @@ dependencies = [
  "eyre",
  "futures",
  "gix",
- "lsp-types",
+ "lsp-types 0.95.1",
  "multimap",
  "radix_trie",
  "rayon",
@@ -2922,8 +2935,10 @@ dependencies = [
  "futures",
  "gix-hash",
  "log",
+ "lsp-types 0.95.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "mongodb",
  "serde",
+ "serde_json",
  "shatterbird-storage",
  "shatterbird-utils",
  "tokio",
@@ -2942,7 +2957,7 @@ dependencies = [
  "eyre",
  "futures",
  "gix-hash",
- "lsp-types",
+ "lsp-types 0.95.1",
  "mongo-model",
  "mongodb",
  "serde",

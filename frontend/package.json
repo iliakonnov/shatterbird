@@ -13,6 +13,7 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
+    "vscode-languageclient": "^9.0.1",
     "vscode-web": "^1.82.0"
   },
   "devDependencies": {
