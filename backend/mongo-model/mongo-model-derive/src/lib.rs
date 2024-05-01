@@ -114,7 +114,7 @@ fn process(input: DeriveInput) -> Result<TokenStream, darling::Error> {
                 #[allow(non_camel_case_types)]
                 struct #field {
                     #(#serde_attrs)*
-                    val: #ty,
+                    #field: #ty,
 
                     #[serde(skip)]
                     _phantom: core::marker::PhantomData<#ident>,
@@ -140,7 +140,7 @@ fn process(input: DeriveInput) -> Result<TokenStream, darling::Error> {
             quote! {
                 pub fn #name(mut self, val: #ty) -> Self {
                     self.#field = Some(::mongo_model::bson::ser::to_bson(&#field {
-                        val,
+                        #field: val,
                         _phantom: ::core::marker::PhantomData::default(),
                     }).unwrap());
                     self
@@ -155,7 +155,7 @@ fn process(input: DeriveInput) -> Result<TokenStream, darling::Error> {
                     let values = items
                         .into_iter()
                         .map(|val| #field {
-                            val,
+                            #field: val,
                             _phantom: ::core::marker::PhantomData::default(),
                         })
                         .map(|x| ::mongo_model::bson::ser::to_document(&x).unwrap())
