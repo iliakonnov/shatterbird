@@ -81,6 +81,17 @@ impl<'g, 's> Converter<'g, 's> {
     pub async fn save(self) -> eyre::Result<()> {
         tokio::try_join!(
             async {
+                let _span = info_span!("saving ranges").entered();
+                let mut ranges = Vec::new();
+                let mut next = self.ranges.first_entry_async().await;
+                while let Some(curr) = next {
+                    ranges.push(curr.get().clone());
+                    next = curr.next_async().await
+                }
+                info!("saving {} ranges", ranges.len());
+                self.storage.insert_many(ranges.iter()).await
+            },
+            async {
                 let _span = info_span!("saving vertices").entered();
                 let mut vertices = Vec::new();
                 let mut next = self.vertices.first_entry_async().await;
@@ -364,28 +375,6 @@ impl<'g, 's> Converter<'g, 's> {
         let id = Id::new();
         _ = self.vertices.insert(v.clone(), Vertex { id, data });
         Ok(Some(id))
-    }
-
-    #[instrument(level = Level::TRACE, ret, err, skip(self, line))]
-    async fn load_line(
-        &self,
-        doc_id: &lsif::Id,
-        line: &str,
-        line_no: u64,
-    ) -> eyre::Result<Id<Line>> {
-        trace!("loading line #{} from doc #{:?}", line_no, doc_id);
-
-        let id = Id::new();
-        let line = Line {
-            id,
-            text: line.to_string(),
-        };
-        let key = LineKey {
-            file: doc_id.clone(),
-            line_no,
-        };
-        _ = self.lines.insert_async(key, line).await;
-        Ok(id)
     }
 
     #[instrument(level = Level::TRACE, skip_all, ret, err, fields(doc_id = ?doc_id, vertex_id = ?vertex.entry().id, range = ?range))]

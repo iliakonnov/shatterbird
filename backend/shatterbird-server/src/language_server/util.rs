@@ -2,7 +2,7 @@ use eyre::eyre;
 use gix_hash::ObjectId;
 use lsp_types::Url;
 use mongodb::bson::doc;
-use tracing::instrument;
+use tracing::{debug, instrument};
 
 use shatterbird_storage::model::{Commit, FileContent, Line, Node, Range};
 use shatterbird_storage::{filter, Storage};
@@ -87,8 +87,8 @@ pub async fn resolve_position(
     let ranges = storage
         .find_all(filter! {
             Range { line_id == line.id },
-            Range { start >= position },
-            Range { end < position },
+            Range { start <= position },
+            Range { end > position },
         })
         .await?;
     Ok(ResolvedPosition {
