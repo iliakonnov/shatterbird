@@ -29,6 +29,7 @@ pub fn router() -> Router<Arc<ServerState>> {
     route!(Router::new(),
         "initialize" -> methods::initialize,
         "textDocument/hover" -> methods::hover,
+        "textDocument/definition" -> methods::go_to_definition,
     )
 }
 

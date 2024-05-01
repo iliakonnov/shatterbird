@@ -1,12 +1,12 @@
 use futures::stream::TryStreamExt;
 use gix_hash::ObjectId;
-use mongodb::bson::doc;
+use mongodb::bson::{doc, Document};
+use mongodb::options::{FindOneOptions, FindOptions};
 use mongodb::{bson, Client, Collection, Database};
 use serde::Serialize;
 use tracing::{info, instrument};
 
-use mongo_model::Filter;
-pub use mongo_model::{filter, Id, Model};
+pub use mongo_model::{Id, Model};
 
 pub mod model;
 pub mod serializers;
@@ -43,13 +43,25 @@ impl Storage {
         Ok(self.access().find_one(doc! {"_id": id}, None).await?)
     }
 
-    pub async fn find<T: Model>(&self, filter: impl Filter<T>) -> eyre::Result<Option<T>> {
-        Ok(self.access().find_one(filter.build()?, None).await?)
+    pub async fn find_one<T: Model>(
+        &self,
+        filter: impl Into<Option<Document>>,
+        options: impl Into<Option<FindOneOptions>>,
+    ) -> eyre::Result<Option<T>> {
+        Ok(self.access().find_one(filter, None).await?)
     }
 
-    pub async fn find_all<T: Model>(&self, filter: impl Filter<T>) -> eyre::Result<Vec<T>> {
-        let cursor = self.access().find(filter.build()?, None).await?;
-        Ok(cursor.try_collect().await?)
+    pub async fn find<T: Model>(
+        &self,
+        filter: impl Into<Option<Document>>,
+        options: impl Into<Option<FindOptions>>,
+    ) -> eyre::Result<Vec<T>> {
+        Ok(self
+            .access()
+            .find(filter, options)
+            .await?
+            .try_collect()
+            .await?)
     }
 
     pub async fn get_by_oid<T: Model>(&self, oid: gix_hash::ObjectId) -> eyre::Result<Option<T>> {

@@ -1,3 +1,4 @@
+use either::Either;
 use serde::{Deserialize, Serialize};
 
 use super::files::Range;
@@ -59,6 +60,7 @@ pub struct EdgeData {
 pub struct Item {
     pub document: Id<Vertex>,
     pub property: Option<lsp_types::lsif::ItemKind>,
+    #[serde(flatten)]
     pub edge_data: EdgeDataMultiIn,
 }
 
@@ -131,4 +133,28 @@ pub struct Diagnostic {
 pub struct DiagnosticRelatedInformation {
     pub location: Id<Range>,
     pub message: String,
+}
+
+impl EdgeInfo {
+    pub fn in_vs(&self) -> impl Iterator<Item = Id<Vertex>> + '_ {
+        match self {
+            EdgeInfo::Contains(x) | EdgeInfo::Item(Item { edge_data: x, .. }) => {
+                Either::Right(x.in_vs.iter().copied())
+            }
+            EdgeInfo::Moniker(x)
+            | EdgeInfo::NextMoniker(x)
+            | EdgeInfo::Next(x)
+            | EdgeInfo::PackageInformation(x)
+            | EdgeInfo::Definition(x)
+            | EdgeInfo::Declaration(x)
+            | EdgeInfo::Hover(x)
+            | EdgeInfo::References(x)
+            | EdgeInfo::Implementation(x)
+            | EdgeInfo::TypeDefinition(x)
+            | EdgeInfo::FoldingRange(x)
+            | EdgeInfo::DocumentLink(x)
+            | EdgeInfo::DocumentSymbol(x)
+            | EdgeInfo::Diagnostic(x) => Either::Left(std::iter::once(x.in_v)),
+        }
+    }
 }

@@ -14,7 +14,7 @@ use mongodb::bson::oid::ObjectId;
 use serde::{Deserialize, Serialize};
 
 use shatterbird_storage::model::{BlobFile, Commit, FileContent, Line, Node};
-use shatterbird_storage::{filter, Id};
+use shatterbird_storage::Id;
 
 use crate::filesystem::model::{EitherNode, ExpandedFileContent, FullNode, NodeInfo};
 use crate::state::AppState;
@@ -60,9 +60,7 @@ async fn get_node(state: &ServerState, id: Id<Node>, is_short: bool) -> AppResul
             let children_ids: Vec<_> = children.values().copied().collect();
             let children_nodes = state
                 .storage
-                .find_all(filter!(Node {
-                    id ["_id"]: in children_ids
-                }))
+                .find::<Node>(doc! {"_id": {"$in": children_ids}}, None)
                 .await?
                 .into_iter()
                 .map(|c| (c.id, c))
@@ -83,9 +81,10 @@ async fn get_node(state: &ServerState, id: Id<Node>, is_short: bool) -> AppResul
             }
         }
         FileContent::Text { size, lines } => {
-            let lines = state.storage.find_all(filter!(Line {
-                id ["_id"]: in lines 
-            })).await?;
+            let lines = state
+                .storage
+                .find(doc! {"_id": {"$in": lines}}, None)
+                .await?;
             ExpandedFileContent::Text { size, lines }
         }
     };

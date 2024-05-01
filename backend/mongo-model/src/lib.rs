@@ -1,12 +1,8 @@
 mod id;
-pub mod filter;
-mod filter2;
-
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 
 pub use id::Id;
-pub use filter::Filter;
 pub use mongo_model_derive::Model;
 
 pub trait ModelBounds
