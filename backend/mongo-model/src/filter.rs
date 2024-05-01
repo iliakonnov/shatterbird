@@ -22,26 +22,64 @@ pub struct Access<F, P> {
     pub filter: F,
 }
 
-#[derive(Serialize, Deserialize)]
-pub enum Value<Val> {
+#[derive(Serialize)]
+pub enum SimpleValue<T> {
     #[serde(rename = "$eq")]
-    Eq(Val),
+    Eq(T),
+
     #[serde(rename = "$gt")]
-    Gt(Val),
+    Gt(T),
+
     #[serde(rename = "$gte")]
-    Gte(Val),
+    Gte(T),
+
     #[serde(rename = "$in")]
-    In(Vec<Val>),
+    In(Vec<T>),
+
     #[serde(rename = "$lt")]
-    Lt(Val),
+    Lt(T),
+
     #[serde(rename = "$lte")]
-    Lte(Val),
+    Lte(T),
+
     #[serde(rename = "$ne")]
-    Ne(Val),
+    Ne(T),
+
     #[serde(rename = "$nin")]
-    Nin(Vec<Val>),
+    Nin(Vec<T>),
+
     #[serde(untagged)]
-    Value(Val),
+    Value(T),
+}
+
+#[derive(Serialize)]
+pub enum Value<T, P> {
+    #[serde(rename = "$eq")]
+    Eq(T, #[serde(skip)] Proof<P>),
+
+    #[serde(rename = "$gt")]
+    Gt(T, #[serde(skip)] Proof<P>),
+
+    #[serde(rename = "$gte")]
+    Gte(T, #[serde(skip)] Proof<P>),
+
+    #[serde(rename = "$in")]
+    In(Vec<T>, #[serde(skip)] Proof<P>),
+
+    #[serde(rename = "$lt")]
+    Lt(T, #[serde(skip)] Proof<P>),
+
+    #[serde(rename = "$lte")]
+    Lte(T, #[serde(skip)] Proof<P>),
+
+    #[serde(rename = "$ne")]
+    Ne(T, #[serde(skip)] Proof<P>),
+
+    #[serde(rename = "$nin")]
+    Nin(Vec<T>, #[serde(skip)] Proof<P>),
+
+    #[serde(untagged)]
+    Value(T, #[serde(skip)] Proof<P>),
 }
 
 trait Filterable<T> {
@@ -84,8 +122,20 @@ where
     }
 }
 
-impl<Val: Serialize> Filterable<Val> for Value<Val> {
-    type Value = Val;
+impl<V: Serialize> Filterable<V> for SimpleValue<V> {
+    type Value = V;
+
+    fn filterable(self) -> Option<(String, bson::ser::Result<Document>)> {
+        Some((String::new(), bson::to_document(&self)))
+    }
+}
+
+impl<V, P> Filterable<P> for Value<V, P>
+where
+    V: Serialize,
+    P: FnOnce() -> V,
+{
+    type Value = V;
 
     fn filterable(self) -> Option<(String, bson::ser::Result<Document>)> {
         Some((String::new(), bson::to_document(&self)))
@@ -150,15 +200,25 @@ macro_rules! filter {
         )*)
     };
 
-    (@filter $(:)? == $val:expr) => { $crate::filter::Value::Eq($val) };
-    (@filter $(:)? != $val:expr) => { $crate::filter::Value::Neq($val) };
-    (@filter $(:)? < $val:expr) => { $crate::filter::Value::Lt($val) };
-    (@filter $(:)? <= $val:expr) => { $crate::filter::Value::Lte($val) };
-    (@filter $(:)? > $val:expr) => { $crate::filter::Value::Gt($val) };
-    (@filter $(:)? >= $val:expr) => { $crate::filter::Value::Gte($val) };
-    (@filter $(:)? in $val:expr) => { $crate::filter::Value::In($val) };
-    (@filter $(:)? not in $val:expr) => { $crate::filter::Value::Nin($val) };
-    (@filter $(:)? === $val:expr) => { $crate::filter::Value::Value($val) };
+    (@filter $(:)? == $field:expr => $val:expr) => { $crate::filter::Value::Eq($val, (|| $field).into()) };
+    (@filter $(:)? != $field:expr => $val:expr) => { $crate::filter::Value::Neq($val, (|| $field).into()) };
+    (@filter $(:)? < $field:expr => $val:expr) => { $crate::filter::Value::Lt($val, (|| $field).into()) };
+    (@filter $(:)? <= $field:expr => $val:expr) => { $crate::filter::Value::Lte($val, (|| $field).into()) };
+    (@filter $(:)? > $field:expr => $val:expr) => { $crate::filter::Value::Gt($val, (|| $field).into()) };
+    (@filter $(:)? >= $field:expr => $val:expr) => { $crate::filter::Value::Gte($val, (|| $field).into()) };
+    (@filter $(:)? in $field:expr => $val:expr) => { $crate::filter::Value::In($val, (|| $field).into()) };
+    (@filter $(:)? not in $field:expr => $val:expr) => { $crate::filter::Value::Nin($val, (|| $field).into()) };
+    (@filter $(:)? === $field:expr => $val:expr) => { $crate::filter::Value::Value($val, (|| $field).into()) };
+
+    (@filter $(:)? == $val:expr) => { $crate::filter::SimpleValue::Eq($val) };
+    (@filter $(:)? != $val:expr) => { $crate::filter::SimpleValue::Neq($val) };
+    (@filter $(:)? < $val:expr) => { $crate::filter::SimpleValue::Lt($val) };
+    (@filter $(:)? <= $val:expr) => { $crate::filter::SimpleValue::Lte($val) };
+    (@filter $(:)? > $val:expr) => { $crate::filter::SimpleValue::Gt($val) };
+    (@filter $(:)? >= $val:expr) => { $crate::filter::SimpleValue::Gte($val) };
+    (@filter $(:)? in $val:expr) => { $crate::filter::SimpleValue::In($val) };
+    (@filter $(:)? not in $val:expr) => { $crate::filter::SimpleValue::Nin($val) };
+    (@filter $(:)? === $val:expr) => { $crate::filter::SimpleValue::Value($val) };
 
     (@filter $(:)? $ty:ty { $field:ident [$name:literal] $($rest:tt)* } ) => {
         $crate::filter::Access {
@@ -180,8 +240,8 @@ macro_rules! filter {
 mod tests {
     use bson::doc;
 
-    use super::Filter;
     use super::{Access, Root, Value};
+    use super::{Filter, SimpleValue};
 
     struct Foo {
         bar: Bar,
@@ -202,7 +262,7 @@ mod tests {
                 filter: Access {
                     field: "x",
                     proof: (|bar: Bar| bar.x).into(),
-                    filter: Value::<i32>::Eq(123),
+                    filter: SimpleValue::<i32>::Eq(123),
                 },
             },
         };

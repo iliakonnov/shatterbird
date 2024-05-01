@@ -1,4 +1,5 @@
 use eyre::eyre;
+use gix_hash::ObjectId;
 use lsp_types::Url;
 use mongodb::bson::doc;
 use tracing::instrument;
@@ -21,12 +22,8 @@ pub async fn resolve_url(storage: &Storage, uri: &Url) -> Result<Node, LspError>
     let commit = splitted[0]
         .parse()
         .map_err(|x| LspError::bad_request(eyre!("invalid commit: {x}")))?;
-    let commit = storage
-        .find(filter! {
-            Commit {
-                oid == commit
-            }
-        })
+    let commit: Commit = storage
+        .get_by_oid(commit)
         .await?
         .ok_or_else(|| LspError::not_found(uri, format!("no such commit: {}", commit)))?;
     let mut curr = commit.root;
@@ -94,12 +91,6 @@ pub async fn resolve_position(
             Range { end < position },
         })
         .await?;
-    //     Range::filter()
-    //         .line_id(line.id)
-    //         .start_like(doc!("$gte": position))
-    //         .end_like(doc!("$lt": position)),
-    // )
-    // .await?;
     Ok(ResolvedPosition {
         node,
         line,

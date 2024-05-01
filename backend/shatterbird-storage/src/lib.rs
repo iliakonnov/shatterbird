@@ -9,7 +9,7 @@ use mongo_model::Filter;
 pub use mongo_model::{filter, Id, Model};
 
 pub mod model;
-mod serializers;
+pub mod serializers;
 pub mod ts;
 
 pub struct Storage {
