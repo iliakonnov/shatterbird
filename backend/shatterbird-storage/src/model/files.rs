@@ -85,7 +85,7 @@ pub struct Commit {
     pub id: Id<Self>,
 
     #[ts(as = "String")]
-    #[serde(with = "crate::serializers::gix_hash")]
+    #[serde(rename="oid", with = "crate::serializers::gix_hash")]
     pub oid: gix_hash::ObjectId,
 
     #[ts(as = "ts::Id<Node>")]
