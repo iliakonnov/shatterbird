@@ -10,6 +10,7 @@ use tracing::{debug, debug_span, info, info_span, instrument, trace, warn, Level
 use crate::lsif::RootMapping;
 use lsp_types::lsif;
 use radix_trie::{Trie, TrieCommon};
+use scc::hash_map::Entry;
 use shatterbird_storage::model::lang::{EdgeData, EdgeDataMultiIn, EdgeInfo, Item, VertexInfo};
 use shatterbird_storage::model::{Commit, Edge, FileContent, Line, Node, Range, Vertex};
 use shatterbird_storage::{Id, Model, Storage};
@@ -186,11 +187,13 @@ impl<'g, 's> Converter<'g, 's> {
             _ => return Err(eyre::eyre!("file {:?} is not a text document", curr.id)),
         };
 
-        _ = self.files.insert_async(doc_id.clone(), file).await;
+        self.files
+            .insert_async(doc_id.clone(), file)
+            .await
+            .expect("doc id is unique");
 
         let vertex_id = Id::new();
-        _ = self
-            .vertices
+        self.vertices
             .insert_async(
                 doc_id.clone(),
                 Vertex {
@@ -198,7 +201,8 @@ impl<'g, 's> Converter<'g, 's> {
                     data: VertexInfo::Document(doc.clone()),
                 },
             )
-            .await;
+            .await
+            .expect("doc_id is unique");
 
         self.graph
             .outgoing_from(&doc_id)
@@ -258,7 +262,7 @@ impl<'g, 's> Converter<'g, 's> {
             .collect::<Vec<_>>();
         if in_vs.is_empty() {
             warn!("no incoming vertices found for edge {:?}", edge.entry().id);
-            return Ok(None)
+            return Ok(None);
         }
 
         let edge_data = EdgeData {
@@ -326,6 +330,11 @@ impl<'g, 's> Converter<'g, 's> {
 
     #[instrument(level = Level::DEBUG, skip_all, ret, err, fields(vertex_id = ?v))]
     fn load_vertex(&self, v: &lsif::Id) -> eyre::Result<Option<Id<Vertex>>> {
+        let entry = self.vertices.entry(v.clone());
+        let entry = match entry {
+            Entry::Occupied(existing) => return Ok(Some(existing.get().id())),
+            Entry::Vacant(vacant) => vacant,
+        };
         let vertex = match self.graph.vertex(v) {
             Some(x) => x,
             None => return Err(eyre::eyre!("vertex {:?} is not found but referenced", v)),
@@ -340,9 +349,12 @@ impl<'g, 's> Converter<'g, 's> {
                 let range = match self.ranges.get(&vertex.entry().id) {
                     Some(x) => x,
                     None => {
-                        warn!("range {:?} is not loaded, probably some documents are missing?", vertex.entry());
-                        return Ok(None)
-                    },
+                        warn!(
+                            "range {:?} is not loaded, probably some documents are missing?",
+                            vertex.entry()
+                        );
+                        return Ok(None);
+                    }
                 };
                 VertexInfo::Range {
                     range: range.get().id(),
@@ -373,7 +385,7 @@ impl<'g, 's> Converter<'g, 's> {
             },
         };
         let id = Id::new();
-        _ = self.vertices.insert(v.clone(), Vertex { id, data });
+        entry.insert_entry(Vertex { id, data });
         Ok(Some(id))
     }
 
@@ -384,6 +396,11 @@ impl<'g, 's> Converter<'g, 's> {
         vertex: VertexRef<'_>,
         range: &lsp_types::Range,
     ) -> eyre::Result<Id<Range>> {
+        let entry = self.ranges.entry(vertex.entry().id.clone());
+        let entry = match entry {
+            Entry::Occupied(existing) => return Ok(existing.get().id()),
+            Entry::Vacant(vacant) => vacant,
+        };
         trace!("loading range {:?}", range);
 
         let line_id = match self.files.get(doc_id) {
@@ -422,7 +439,7 @@ impl<'g, 's> Converter<'g, 's> {
             start: range.start.character,
             end,
         };
-        _ = self.ranges.insert(vertex.entry().id.clone(), range);
+        entry.insert_entry(range);
         Ok(id)
     }
 }
