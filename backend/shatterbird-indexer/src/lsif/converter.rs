@@ -24,11 +24,17 @@ struct LineKey {
     line_no: u64,
 }
 
+#[derive(Debug)]
+struct FileWithPath {
+    node: Node,
+    path: Vec<Id<Node>>,
+}
+
 pub struct Converter<'g, 's> {
     storage: &'s Storage,
     graph: &'g Graph<'g>,
     roots: Trie<String, Id<Commit>>,
-    files: HashMap<lsif::Id, Node>,
+    files: HashMap<lsif::Id, FileWithPath>,
     lines: HashMap<LineKey, Line>,
     ranges: HashMap<lsif::Id, Range>,
     vertices: HashMap<lsif::Id, Vertex>,
@@ -150,6 +156,7 @@ impl<'g, 's> Converter<'g, 's> {
             suffix
         );
 
+        let mut path = Vec::new();
         let mut curr = self
             .storage
             .get(root)
@@ -165,6 +172,7 @@ impl<'g, 's> Converter<'g, 's> {
                 .get(curr)
                 .await?
                 .ok_or_eyre(eyre!("node {} not found in DB", root))?;
+            path.push(node.id);
             curr = match node.content {
                 FileContent::Directory { children, .. } => children
                     .get(segment)
@@ -179,6 +187,8 @@ impl<'g, 's> Converter<'g, 's> {
             .get(curr)
             .await?
             .ok_or_eyre(eyre!("file {} not found in DB", root))?;
+        path.push(node.id);
+
         let file = match node {
             Node {
                 content: FileContent::Text { .. },
@@ -186,6 +196,7 @@ impl<'g, 's> Converter<'g, 's> {
             } => node,
             _ => return Err(eyre::eyre!("file {:?} is not a text document", curr.id)),
         };
+        let file = FileWithPath { node: file, path };
 
         self.files
             .insert_async(doc_id.clone(), file)
@@ -403,20 +414,23 @@ impl<'g, 's> Converter<'g, 's> {
         };
         trace!("loading range {:?}", range);
 
-        let line_id = match self.files.get(doc_id) {
-            Some(x) => match &x.get().content {
-                FileContent::Text { lines, .. } => match lines.get(range.start.line as usize) {
-                    Some(x) => *x,
-                    None => {
-                        return Err(eyre::eyre!(
-                            "document {:?} is not long enough to get line #{}",
-                            doc_id,
-                            range.start.line
-                        ))
-                    }
-                },
-                _ => return Err(eyre::eyre!("document {:?} is not a text document", doc_id)),
-            },
+        let (line_id, path) = match self.files.get(doc_id) {
+            Some(x) => {
+                let FileWithPath { node, path } = x.get();
+                match &node.content {
+                    FileContent::Text { lines, .. } => match lines.get(range.start.line as usize) {
+                        Some(x) => (*x, path.clone()),
+                        None => {
+                            return Err(eyre::eyre!(
+                                "document {:?} is not long enough to get line #{}",
+                                doc_id,
+                                range.start.line
+                            ))
+                        }
+                    },
+                    _ => return Err(eyre::eyre!("document {:?} is not a text document", doc_id)),
+                }
+            }
             None => {
                 return Err(eyre::eyre!(
                     "document {:?} not found but referenced by {:?}",
@@ -438,6 +452,7 @@ impl<'g, 's> Converter<'g, 's> {
             line_id,
             start: range.start.character,
             end,
+            path,
         };
         entry.insert_entry(range);
         Ok(id)

@@ -20,4 +20,10 @@ export interface FileLike extends BaseNode {
     getContent(): Promise<Uint8Array>
 }
 
-export type Node = FileLike | DirectoryLike;
+export interface Symlink extends BaseNode {
+    readonly fileType: FileType.SymbolicLink;
+
+    getTarget(): Promise<string>;
+}
+
+export type Node = FileLike | DirectoryLike | Symlink;

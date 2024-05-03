@@ -40,10 +40,16 @@ export default class FsProviderBase {
             throw FileSystemError.FileIsADirectory(uri);
         }
         const node = await this.resolve(uri);
-        if (node.fileType != FileType.File) {
+        if (node.fileType == FileType.File) {
+            return node.getContent()
+        }
+        if (node.fileType == FileType.SymbolicLink) {
+            throw FileSystemError.Unavailable("is a symlink");
+        }
+        if (node.fileType == FileType.Directory) {
             throw FileSystemError.FileIsADirectory(uri);
         }
-        return await node.getContent();
+        throw FileSystemError.Unavailable("unknown file type");
     }
 
     private async resolve(uri: Uri): Promise<Node> {
@@ -58,8 +64,8 @@ export default class FsProviderBase {
         if (commit == null) {
             throw FileSystemError.FileNotFound(uri);
         }
-
         let curr: Node = new RepoRoot(this.client, commit);
+
         for (let next of splitted.slice(2)) {
             if (curr.fileType !== FileType.Directory) {
                 throw FileSystemError.FileNotFound(uri);

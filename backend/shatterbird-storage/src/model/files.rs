@@ -25,6 +25,10 @@ pub struct Range {
     #[ts(as = "ts::Id<Line>")]
     pub line_id: Id<Line>,
 
+    // TODO: Move out of Range to reduce storage costs
+    #[ts(as = "Vec<ts::Id<Line>>")]
+    pub path: Vec<Id<Node>>,
+
     pub start: u32,
     pub end: u32,
 }
