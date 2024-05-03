@@ -10,6 +10,7 @@
       <sourceFolder url="file://$MODULE_DIR$/backend/mongo-model/mongo-model-test/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/backend/mongo-model/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/backend/mongo-model/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/backend/shatterbird-cli/src" isTestSource="false" />
       <excludeFolder url="file://$MODULE_DIR$/backend/target" />
       <excludeFolder url="file://$MODULE_DIR$/frontend/dist" />
     </content>

@@ -3,7 +3,7 @@ use lsp_types::Url;
 use mongodb::bson::doc;
 use tracing::{debug, info_span, instrument};
 
-use shatterbird_storage::model::lang::EdgeInfo;
+use shatterbird_storage::model::lang::{EdgeInfo, EdgeInfoDiscriminants};
 use shatterbird_storage::model::{Commit, Edge, FileContent, Line, Node, Range, Vertex};
 use shatterbird_storage::{Id, Storage};
 
@@ -62,15 +62,16 @@ pub struct ResolvedPosition {
     pub node: Id<Node>,
     pub line: Id<Line>,
     pub position: u32,
-    pub related: Vec<Id<Vertex>>,
+    pub ranges: Vec<Id<Range>>,
     pub found: Vec<Vertex>,
 }
 
-#[instrument(skip_all, fields(uri = %position.text_document.uri, edge=edge, position = ?position.position))]
+#[instrument(skip_all, fields(uri = %position.text_document.uri, edge=?edge, position = ?position.position))]
 pub async fn find(
     storage: &Storage,
-    edge: &'static str,
+    edge: Option<EdgeInfoDiscriminants>,
     position: &lsp_types::TextDocumentPositionParams,
+    reverse: bool,
 ) -> Result<ResolvedPosition, LspError> {
     let node = resolve_url(&storage, &position.text_document.uri).await?;
     let lines = match &node.content {
@@ -103,13 +104,17 @@ pub async fn find(
         node: node.id,
         line: line.id,
         position,
+        ranges: ranges.iter().map(|i| i.id).collect(),
         found: Vec::new(),
-        related: Vec::new(),
     };
 
+    let edge: &'static str = match edge {
+        Some(x) => x.into(),
+        None => return Ok(result),
+    };
     for range in ranges {
-        let mut vertex: Vertex = storage
-            .find_one(
+        let initital = storage
+            .find_one::<Vertex>(
                 doc! {
                     "data.vertex": { "$eq": "Range" },
                     "data.range": { "$eq": range.id },
@@ -118,15 +123,24 @@ pub async fn find(
             )
             .await?
             .ok_or_eyre(eyre!("no matching vertex found for {}", range.id))?;
-        'inner: loop {
-            let span = info_span!("vertex", vertex_id = %vertex.id);
-
-            result.related.push(vertex.id);
+        let mut queue = Vec::new();
+        queue.push(initital.id);
+        while let Some(vertex) = queue.pop() {
             let outgoing: Vec<Edge> = storage
                 .find(
-                    doc! {
-                        "data.edge": { "$eq": edge },
-                        "data.out_v": { "$eq": vertex.id }
+                    if !reverse {
+                        doc! {
+                            "data.edge": { "$eq": edge },
+                            "data.out_v": { "$eq": vertex }
+                        }
+                    } else {
+                        doc! {
+                            "data.edge": { "$eq": edge },
+                            "$or": [
+                                { "data.in_v": vertex },
+                                { "data.in_vs": vertex },
+                            ]
+                        }
                     },
                     None,
                 )
@@ -145,29 +159,63 @@ pub async fn find(
                 return Ok(result);
             }
 
-            let next: Option<Edge> = storage
-                .find_one(
-                    doc! {
-                        "data.edge": { "$eq": "Next" },
-                        "data.out_v": { "$eq": vertex.id }
+            let next = storage
+                .find::<Edge>(
+                    if !reverse {
+                        doc! {
+                            "data.edge": { "$eq": "Next" },
+                            "data.out_v": { "$eq": vertex }
+                        }
+                    } else {
+                        doc! {
+                            "data.edge": { "$eq": "Next" },
+                            "$or": [
+                                {"data.in_v": vertex },
+                                {"data.in_vs": vertex },
+                            ]
+                        }
                     },
                     None,
                 )
                 .await?;
-            let next = match next {
-                None => break 'inner,
-                Some(Edge {
-                    data: EdgeInfo::Next(edge),
-                    ..
-                }) => edge,
-                Some(x) => return Err(eyre!("unexpected edge: {:?}", x).into()),
-            };
-            vertex = storage
-                .get(next.in_v)
-                .await?
-                .ok_or_eyre(eyre!("can't find next vertex {}", next.in_v))?;
+            for i in next {
+                match i.data {
+                    EdgeInfo::Next(edge) => {
+                        if !reverse {
+                            queue.push(edge.in_v);
+                        } else {
+                            queue.push(edge.out_v);
+                        }
+                    }
+                    _ => return Err(eyre!("unexpected edge: {:?}", i).into()),
+                }
+            }
         }
     }
 
     Ok(result)
+}
+
+pub async fn find_line_no(storage: &Storage, range: &Range) -> Result<u32, LspError> {
+    let line = storage
+        .get(range.line_id)
+        .await?
+        .ok_or_eyre(eyre!("line {} referenced, but not found", range.line_id))?;
+    let doc = storage
+        .find_one::<Node>(
+            doc! {"content.Text.lines": { "$elemMatch": { "$eq": line.id }} },
+            None,
+        )
+        .await?
+        .ok_or_eyre(eyre!("can't find file containing line {}", line.id))?;
+    let line_no = match doc.content {
+        FileContent::Text { lines, .. } => lines.iter().position(|&x| x == line.id).unwrap(),
+        _ => {
+            return Err(LspError::Internal(eyre!(
+                "expected text file, found {:?}",
+                doc.content
+            )))
+        }
+    };
+    Ok(line_no as _)
 }

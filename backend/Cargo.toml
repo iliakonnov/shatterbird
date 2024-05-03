@@ -2,7 +2,7 @@
 resolver = "2"
 members = [
     "mongo-model",
-    "mongo-model/mongo-model-derive",
+    "mongo-model/mongo-model-derive", "shatterbird-cli",
     "shatterbird-indexer",
     "shatterbird-server",
     "shatterbird-storage",

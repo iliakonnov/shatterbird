@@ -12,6 +12,7 @@ use crate::state::{AppState, ServerState};
 mod error;
 mod methods;
 mod util;
+mod go_to_definition;
 
 macro_rules! route {
     ($router:expr, $($method:tt -> $handler:expr),* $(,)?) => {
@@ -28,7 +29,7 @@ macro_rules! route {
 pub fn router() -> Router<Arc<ServerState>> {
     route!(Router::new(),
         "initialize" -> methods::initialize,
-        "textDocument/hover" -> methods::hover,
+        "textDocument/hover" -> methods::hover_range,
         "textDocument/definition" -> methods::go_to_definition,
     )
 }

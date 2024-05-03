@@ -1,5 +1,6 @@
 use either::Either;
 use serde::{Deserialize, Serialize};
+use strum::{EnumDiscriminants, EnumTryAs};
 
 use super::files::Range;
 use crate::Model;
@@ -23,7 +24,8 @@ pub struct Edge {
 
 // Same as https://docs.rs/lsp-types/latest/lsp_types/lsif/enum.Edge.html
 // But with all `Id`s replaced with `Id<Vertex>`.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, EnumTryAs, EnumDiscriminants)]
+#[strum_discriminants(derive(strum::EnumString, strum::IntoStaticStr))]
 #[serde(tag = "edge")]
 pub enum EdgeInfo {
     Contains(EdgeDataMultiIn),
@@ -67,7 +69,8 @@ pub struct Item {
 
 // Same as https://docs.rs/lsp-types/latest/lsp_types/lsif/enum.Vertex.html
 // But with all Ranges replaced with Id<Range> instead.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, EnumTryAs, EnumDiscriminants)]
+#[strum_discriminants(derive(strum::EnumString, strum::IntoStaticStr))]
 #[serde(tag = "vertex")]
 pub enum VertexInfo {
     MetaData(lsp_types::lsif::MetaData),
@@ -159,13 +162,10 @@ impl EdgeInfo {
             | EdgeInfo::Diagnostic(x) => Either::Left(std::iter::once(x.in_v)),
         }
     }
-    
-    pub fn out_vs(&self) -> impl Iterator<Item = Id<Vertex>> {
-        match self {
 
-            EdgeInfo::Contains(x) | EdgeInfo::Item(Item { edge_data: x, .. }) => {
-                Either::Right(std::iter::once(x.out_v))
-            }
+    pub fn out_v(&self) -> Id<Vertex> {
+        match self {
+            EdgeInfo::Contains(x) | EdgeInfo::Item(Item { edge_data: x, .. }) => x.out_v,
             EdgeInfo::Moniker(x)
             | EdgeInfo::NextMoniker(x)
             | EdgeInfo::Next(x)
@@ -179,7 +179,7 @@ impl EdgeInfo {
             | EdgeInfo::FoldingRange(x)
             | EdgeInfo::DocumentLink(x)
             | EdgeInfo::DocumentSymbol(x)
-            | EdgeInfo::Diagnostic(x) => Either::Left(std::iter::once(x.out_v)),
+            | EdgeInfo::Diagnostic(x) => x.out_v,
         }
     }
 }
