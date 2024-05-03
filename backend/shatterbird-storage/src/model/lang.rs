@@ -24,6 +24,7 @@ pub struct Edge {
 // Same as https://docs.rs/lsp-types/latest/lsp_types/lsif/enum.Edge.html
 // But with all `Id`s replaced with `Id<Vertex>`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "edge")]
 pub enum EdgeInfo {
     Contains(EdgeDataMultiIn),
     Moniker(EdgeData),
@@ -67,6 +68,7 @@ pub struct Item {
 // Same as https://docs.rs/lsp-types/latest/lsp_types/lsif/enum.Vertex.html
 // But with all Ranges replaced with Id<Range> instead.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "vertex")]
 pub enum VertexInfo {
     MetaData(lsp_types::lsif::MetaData),
     Project(lsp_types::lsif::Project),
@@ -155,6 +157,29 @@ impl EdgeInfo {
             | EdgeInfo::DocumentLink(x)
             | EdgeInfo::DocumentSymbol(x)
             | EdgeInfo::Diagnostic(x) => Either::Left(std::iter::once(x.in_v)),
+        }
+    }
+    
+    pub fn out_vs(&self) -> impl Iterator<Item = Id<Vertex>> {
+        match self {
+
+            EdgeInfo::Contains(x) | EdgeInfo::Item(Item { edge_data: x, .. }) => {
+                Either::Right(std::iter::once(x.out_v))
+            }
+            EdgeInfo::Moniker(x)
+            | EdgeInfo::NextMoniker(x)
+            | EdgeInfo::Next(x)
+            | EdgeInfo::PackageInformation(x)
+            | EdgeInfo::Definition(x)
+            | EdgeInfo::Declaration(x)
+            | EdgeInfo::Hover(x)
+            | EdgeInfo::References(x)
+            | EdgeInfo::Implementation(x)
+            | EdgeInfo::TypeDefinition(x)
+            | EdgeInfo::FoldingRange(x)
+            | EdgeInfo::DocumentLink(x)
+            | EdgeInfo::DocumentSymbol(x)
+            | EdgeInfo::Diagnostic(x) => Either::Left(std::iter::once(x.out_v)),
         }
     }
 }

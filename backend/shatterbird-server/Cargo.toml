@@ -14,7 +14,7 @@ eyre = "0.6.12"
 futures = "0.3.30"
 gix-hash = "0.14.2"
 log = "0.4.21"
-lsp-types = "0.95.1"
+lsp-types = { path = "../../thirdparty/lsp-types" }
 mongodb = "2.8.2"
 serde = { version = "1.0.197", features = ["derive"] }
 tokio = { version = "1.36.0", features = ["full"] }

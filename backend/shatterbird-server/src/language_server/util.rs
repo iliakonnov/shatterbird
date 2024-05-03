@@ -1,7 +1,7 @@
 use eyre::{eyre, OptionExt};
 use lsp_types::Url;
 use mongodb::bson::doc;
-use tracing::instrument;
+use tracing::{debug, info_span, instrument};
 
 use shatterbird_storage::model::lang::EdgeInfo;
 use shatterbird_storage::model::{Commit, Edge, FileContent, Line, Node, Range, Vertex};
@@ -62,10 +62,11 @@ pub struct ResolvedPosition {
     pub node: Id<Node>,
     pub line: Id<Line>,
     pub position: u32,
+    pub related: Vec<Id<Vertex>>,
     pub found: Vec<Vertex>,
 }
 
-#[instrument(skip_all, fields(uri = %position.text_document.uri, position = ?position.position))]
+#[instrument(skip_all, fields(uri = %position.text_document.uri, edge=edge, position = ?position.position))]
 pub async fn find(
     storage: &Storage,
     edge: &'static str,
@@ -103,24 +104,29 @@ pub async fn find(
         line: line.id,
         position,
         found: Vec::new(),
+        related: Vec::new(),
     };
 
-    let out_v_key = format!("{}.out_v", edge);
     for range in ranges {
         let mut vertex: Vertex = storage
             .find_one(
                 doc! {
-                    "Range.range": { "$eq": range.id }
+                    "data.vertex": { "$eq": "Range" },
+                    "data.range": { "$eq": range.id },
                 },
                 None,
             )
             .await?
             .ok_or_eyre(eyre!("no matching vertex found for {}", range.id))?;
-        loop {
+        'inner: loop {
+            let span = info_span!("vertex", vertex_id = %vertex.id);
+
+            result.related.push(vertex.id);
             let outgoing: Vec<Edge> = storage
                 .find(
                     doc! {
-                        &out_v_key: { "$eq": vertex.id }
+                        "data.edge": { "$eq": edge },
+                        "data.out_v": { "$eq": vertex.id }
                     },
                     None,
                 )
@@ -129,7 +135,7 @@ pub async fn find(
                 result.found = storage
                     .find(
                         doc! {
-                            "id": {
+                            "_id": {
                                 "$in": outgoing.iter().flat_map(|e| e.data.in_vs()).collect::<Vec<_>>()
                             }
                         },
@@ -142,13 +148,14 @@ pub async fn find(
             let next: Option<Edge> = storage
                 .find_one(
                     doc! {
-                        "Next.out_v": { "$eq": vertex.id }
+                        "data.edge": { "$eq": "Next" },
+                        "data.out_v": { "$eq": vertex.id }
                     },
                     None,
                 )
                 .await?;
             let next = match next {
-                None => break,
+                None => break 'inner,
                 Some(Edge {
                     data: EdgeInfo::Next(edge),
                     ..
