@@ -11,7 +11,6 @@ use crate::state::{AppState, ServerState};
 
 mod error;
 mod methods;
-mod util;
 mod go_to_definition;
 
 macro_rules! route {

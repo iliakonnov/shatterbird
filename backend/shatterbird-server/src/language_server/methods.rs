@@ -12,9 +12,10 @@ use shatterbird_storage::model::lang::{EdgeInfoDiscriminants, VertexInfo};
 use shatterbird_storage::model::{Commit, Edge, FileContent, Node, Vertex};
 use tracing::{debug, info, instrument};
 use url::Url;
+use shatterbird_storage::util;
 
 use crate::language_server::error::LspError;
-use crate::language_server::{go_to_definition, util};
+use crate::language_server::go_to_definition;
 use crate::state::ServerState;
 
 #[instrument(skip(state), err)]
@@ -40,7 +41,7 @@ pub async fn hover(
     state: Arc<ServerState>,
     req: lsp_types::HoverParams,
 ) -> Result<Option<Hover>, LspError> {
-    let found = util::find(
+    let found = util::graph::find(
         &state.storage,
         Some(EdgeInfoDiscriminants::Hover),
         &req.text_document_position_params,
@@ -67,7 +68,7 @@ pub async fn hover_range(
     state: Arc<ServerState>,
     req: lsp_types::HoverParams,
 ) -> Result<Option<Hover>, LspError> {
-    let found = util::find(
+    let found = util::graph::find(
         &state.storage,
         None,
         &req.text_document_position_params,
@@ -83,7 +84,7 @@ pub async fn hover_range(
         None => None,
     };
     let line_no = match &range {
-        Some(x) => Some(util::find_line_no(&state.storage, x).await?),
+        Some(x) => Some(util::graph::find_line_no(&state.storage, x).await?),
         None => None,
     };
     Ok(Some(Hover {
