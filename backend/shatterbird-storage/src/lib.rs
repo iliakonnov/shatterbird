@@ -11,6 +11,7 @@ pub use mongo_model::{Id, Model};
 pub mod model;
 pub mod serializers;
 pub mod ts;
+pub mod util;
 
 pub struct Storage {
     client: Client,

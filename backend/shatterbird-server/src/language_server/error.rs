@@ -1,7 +1,8 @@
 use axum::http::StatusCode;
 use axum_derive_error::ErrorResponse;
-use eyre::Report;
+use eyre::{eyre, Report};
 use lsp_types::Url;
+use shatterbird_storage::util::graph::{FindError, ResolveError};
 use std::error::Error;
 use thiserror::Error;
 
@@ -38,5 +39,26 @@ impl LspError {
 
     pub fn bad_request<T: Into<Report>>(err: T) -> Self {
         Self::BadRequest(err.into())
+    }
+}
+
+impl From<ResolveError> for LspError {
+    fn from(value: ResolveError) -> Self {
+        match value {
+            ResolveError::FileNotFound { url, message } => LspError::FileNotFound { url, message },
+            ResolveError::InvalidCommit(err) => LspError::BadRequest(err.into()),
+            ResolveError::Internal(err) => err.into(),
+        }
+    }
+}
+
+impl From<FindError> for LspError {
+    fn from(value: FindError) -> Self {
+        match value {
+            FindError::CantResolve(err) => err.into(),
+            FindError::NotATextFile => LspError::BadRequest(eyre!("not a text file")),
+            FindError::InvalidLineNumber => LspError::BadRequest(eyre!("invalid line number")),
+            FindError::Internal(err) => err.into(),
+        }
     }
 }

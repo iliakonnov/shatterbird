@@ -2,6 +2,7 @@ use crate::ts;
 use mongo_model::{Id, Model};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use strum::EnumTryAs;
 use ts_rs::TS;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Model, TS)]
@@ -43,7 +44,7 @@ pub struct BlobFile {
     pub data: Vec<u8>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS, EnumTryAs)]
 #[ts(export)]
 pub enum FileContent {
     Symlink {

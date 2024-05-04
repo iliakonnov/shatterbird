@@ -20,3 +20,4 @@ tracing = "0.1.40"
 ts-rs = { version = "8.1", features = ["bson-uuid-impl"] }
 
 mongo-model = { path = "../mongo-model" }
+thiserror = "1.0.59"

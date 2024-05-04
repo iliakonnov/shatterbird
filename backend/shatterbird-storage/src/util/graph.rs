@@ -1,50 +1,68 @@
-use eyre::{eyre, OptionExt};
+use std::collections::HashMap;
+
+use either::Either;
+use eyre::{eyre, OptionExt, Report};
 use lsp_types::Url;
 use mongodb::bson::doc;
-use tracing::{debug, info_span, instrument};
+use thiserror::Error;
+use tracing::{instrument, warn};
 
-use shatterbird_storage::model::lang::{EdgeInfo, EdgeInfoDiscriminants};
-use shatterbird_storage::model::{Commit, Edge, FileContent, Line, Node, Range, Vertex};
-use shatterbird_storage::{Id, Storage};
+use crate::model::lang::{EdgeInfo, EdgeInfoDiscriminants};
+use crate::model::{Commit, Edge, FileContent, Line, Node, Range, Vertex};
+use crate::{Id, Storage};
 
-use crate::language_server::error::LspError;
+#[derive(Debug, Error)]
+pub enum ResolveError {
+    #[error("file {url} not found{}", message.as_ref().map(|x| format!(": {}", x)).unwrap_or_default())]
+    FileNotFound { url: Url, message: Option<String> },
+
+    #[error("invalid commit: {0}")]
+    InvalidCommit(#[from] gix_hash::decode::Error),
+
+    #[error("other error: {0}")]
+    Internal(
+        #[from]
+        #[source]
+        Report,
+    ),
+}
+
+fn not_found<T: ToString>(url: &Url, message: T) -> ResolveError {
+    ResolveError::FileNotFound {
+        url: url.clone(),
+        message: Some(message.to_string()),
+    }
+}
 
 #[instrument(skip_all, fields(uri = %uri))]
-pub async fn resolve_url(storage: &Storage, uri: &Url) -> Result<Node, LspError> {
+pub async fn resolve_url(storage: &Storage, uri: &Url) -> Result<Node, ResolveError> {
     let splitted = uri
         .path()
         .split('/')
         .filter(|x| !x.is_empty())
         .collect::<Vec<_>>();
     if splitted.is_empty() {
-        return Err(LspError::not_found(uri, "empty path"));
+        return Err(not_found(uri, "empty path"));
     }
-    let commit = splitted[0]
-        .parse()
-        .map_err(|x| LspError::bad_request(eyre!("invalid commit: {x}")))?;
+    let commit = splitted[0].parse()?;
     let commit: Commit = storage
         .get_by_oid(commit)
         .await?
-        .ok_or_else(|| LspError::not_found(uri, format!("no such commit: {}", commit)))?;
+        .ok_or_else(|| not_found(uri, format!("no such commit: {}", commit)))?;
     let mut curr = commit.root;
     for &component in splitted[1..].iter() {
         let node = match storage.get(curr).await? {
             Some(x) => x,
-            None => return Err(LspError::Internal(eyre!("can't find {}", curr))),
+            None => return Err(ResolveError::Internal(eyre!("can't find {}", curr))),
         };
         let children = match node.content {
             FileContent::Directory { children } => children,
-            _ => {
-                return Err(LspError::not_found(
-                    uri,
-                    format!("{} is not a directory", curr),
-                ))?
-            }
+            _ => return Err(not_found(uri, format!("{} is not a directory", curr)))?,
         };
         curr = match children.get(component) {
             Some(x) => *x,
             None => {
-                return Err(LspError::not_found(
+                return Err(not_found(
                     uri,
                     format!("no child named {} in {}", component, curr),
                 ))
@@ -54,7 +72,7 @@ pub async fn resolve_url(storage: &Storage, uri: &Url) -> Result<Node, LspError>
     storage
         .get(curr)
         .await?
-        .ok_or_else(|| LspError::Internal(eyre!("can't find {}", curr)))
+        .ok_or_else(|| ResolveError::Internal(eyre!("can't find {}", curr)))
 }
 
 #[derive(Debug)]
@@ -66,26 +84,45 @@ pub struct ResolvedPosition {
     pub found: Vec<Vertex>,
 }
 
+#[derive(Debug, Error)]
+pub enum FindError {
+    #[error("failed to resolve file: {0}")]
+    CantResolve(#[from] ResolveError),
+
+    #[error("not a text file")]
+    NotATextFile,
+
+    #[error("invalid line number")]
+    InvalidLineNumber,
+
+    #[error("other error: {0}")]
+    Internal(
+        #[from]
+        #[source]
+        Report,
+    ),
+}
+
 #[instrument(skip_all, fields(uri = %position.text_document.uri, edge=?edge, position = ?position.position))]
 pub async fn find(
     storage: &Storage,
     edge: Option<EdgeInfoDiscriminants>,
     position: &lsp_types::TextDocumentPositionParams,
     reverse: bool,
-) -> Result<ResolvedPosition, LspError> {
+) -> Result<ResolvedPosition, FindError> {
     let node = resolve_url(&storage, &position.text_document.uri).await?;
     let lines = match &node.content {
         FileContent::Text { lines, .. } => lines,
-        _ => return Err(LspError::BadRequest(eyre!("not a text file"))),
+        _ => return Err(FindError::NotATextFile),
     };
     let line = lines
         .get(position.position.line as usize)
         .copied()
-        .ok_or_else(|| LspError::BadRequest(eyre!("invalid line number")))?;
+        .ok_or_else(|| FindError::InvalidLineNumber)?;
     let line = storage
         .get(line)
         .await?
-        .ok_or_else(|| LspError::Internal(eyre!("can't find {}", line)))?;
+        .ok_or_else(|| FindError::Internal(eyre!("can't find {}", line)))?;
     let position = position.position.character;
 
     let mut ranges = storage
@@ -196,7 +233,7 @@ pub async fn find(
     Ok(result)
 }
 
-pub async fn find_line_no(storage: &Storage, range: &Range) -> Result<u32, LspError> {
+pub async fn find_line_no(storage: &Storage, range: &Range) -> Result<u32, Report> {
     let line = storage
         .get(range.line_id)
         .await?
@@ -210,12 +247,46 @@ pub async fn find_line_no(storage: &Storage, range: &Range) -> Result<u32, LspEr
         .ok_or_eyre(eyre!("can't find file containing line {}", line.id))?;
     let line_no = match doc.content {
         FileContent::Text { lines, .. } => lines.iter().position(|&x| x == line.id).unwrap(),
-        _ => {
-            return Err(LspError::Internal(eyre!(
-                "expected text file, found {:?}",
-                doc.content
-            )))
-        }
+        _ => return Err(eyre!("expected text file, found {:?}", doc.content)),
     };
     Ok(line_no as _)
+}
+
+pub async fn find_file_path(storage: &Storage, range: &Range) -> Result<Vec<String>, Report> {
+    let nodes = storage
+        .find::<Node>(doc! { "_id": { "$in": &range.path }}, None)
+        .await?
+        .into_iter()
+        .map(|i| (i.id, i))
+        .collect::<HashMap<_, _>>();
+    let mut path = Vec::new();
+
+    let root = range.path[0];
+    let commit = storage
+        .find_one::<Commit>(doc! { "root": root }, None)
+        .await?
+        .ok_or_eyre(eyre!("no commit for root {} is found", root))?;
+    let commit_oid = commit.oid.to_hex().to_string();
+
+    path.push(&commit_oid[..]);
+    for pair in range.path.windows(2) {
+        let (parent, curr) = match pair {
+            &[parent, curr] => (parent, curr),
+            _ => unreachable!(),
+        };
+        let parent = nodes
+            .get(&parent)
+            .ok_or_eyre(eyre!("node {} not found in database", parent))?;
+        let children = match &parent.content {
+            FileContent::Directory { children, .. } => children,
+            _ => return Err(eyre::eyre!("node {:?} is not a directory", parent.id)),
+        };
+        let name = children
+            .iter()
+            .find(|(k, v)| **v == curr)
+            .map(|(k, _)| k)
+            .ok_or_eyre(eyre!("node {} not found in {}", curr, parent.id))?;
+        path.push(&name[..])
+    }
+    Ok(path.into_iter().map(|x| x.to_owned()).collect())
 }

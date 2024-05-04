@@ -3,13 +3,14 @@ use bson::doc;
 use clap::Args;
 use eyre::{eyre, OptionExt};
 use futures::FutureExt;
+use graphviz_rust::cmd::{Format, Layout};
+use graphviz_rust::printer::PrinterContext;
 use image::Rgba;
-use layout::backends::svg::SVGWriter;
 use shatterbird_storage::model::lang::{
     EdgeInfoDiscriminants, VertexInfo, VertexInfoDiscriminants,
 };
-use shatterbird_storage::model::{Edge, Range, Vertex};
-use shatterbird_storage::Id;
+use shatterbird_storage::model::{Edge, FileContent, Range, Vertex};
+use shatterbird_storage::{util, Id};
 use std::collections::{HashMap, HashSet};
 use std::io::{BufWriter, Write};
 use std::path::PathBuf;
@@ -67,6 +68,7 @@ impl Graph {
             };
 
             writeln!(&mut state.writer, "strict digraph {{")?;
+            writeln!(&mut state.writer, "overlap = scale; splines = true; sep = 1;")?;
             state.visit_vertex(&app.storage, initital.id).await?;
             writeln!(&mut state.writer, "}}")?;
         }
@@ -77,15 +79,13 @@ impl Graph {
 
         let svg = if self.svg.is_some() || self.show {
             let text = std::str::from_utf8(&output).expect("graph must be valid UTF-8");
-            let ast = layout::gv::parser::DotParser::new(text)
-                .process()
-                .map_err(|e| eyre!("failed to parse graph: {}", e))?;
-            let mut graph = layout::gv::builder::GraphBuilder::new();
-            graph.visit_graph(&ast);
-            let mut graph = graph.get();
-            let mut svg = SVGWriter::new();
-            graph.do_it(false, false, false, &mut svg);
-            Some(svg.finalize())
+            let graph =
+                graphviz_rust::parse(text).map_err(|e| eyre!("failed to parse graph: {}", e))?;
+            Some(graphviz_rust::exec(
+                graph,
+                &mut PrinterContext::default(),
+                vec![Layout::Neato.into(), Format::Svg.into()],
+            )?)
         } else {
             None
         };
@@ -116,13 +116,17 @@ impl Graph {
 
             let image = image::RgbaImage::from_raw(width, height, pixmap.data().to_vec())
                 .ok_or_eyre(eyre!("failed to create image"))?;
-            let mut on_white = image::RgbaImage::from_fn(width, height, |_, _| Rgba([255, 255, 255, 255]));
+            let mut on_white =
+                image::RgbaImage::from_fn(width, height, |_, _| Rgba([255, 255, 255, 255]));
             image::imageops::overlay(&mut on_white, &image, 0, 0);
             let image = image::DynamicImage::ImageRgba8(on_white);
-            viuer::print(&image, &viuer::Config{
-                absolute_offset: false,
-                ..Default::default()
-            })?;
+            viuer::print(
+                &image,
+                &viuer::Config {
+                    absolute_offset: false,
+                    ..Default::default()
+                },
+            )?;
         }
 
         Ok(())
@@ -154,18 +158,48 @@ impl<W: Write> State<W> {
         }
         self.vertices.insert(id, true);
 
+        let mut xlabel = None;
+        let mut tooltip = None;
+
+        if let VertexInfo::Range { range, tag } = &vertex.data {
+            let range = storage
+                .get(*range)
+                .await?
+                .ok_or_eyre(eyre!("{range} not found"))?;
+            let line_no = util::graph::find_line_no(storage, &range).await?;
+            let filename = util::graph::find_file_path(storage, &range).await?;
+            let filename = &filename[1..].join("/");
+            let line = storage
+                .get(range.line_id)
+                .await?
+                .ok_or_eyre(eyre!("line {} not found", range.line_id))?;
+            let span = line.text[range.start as _..range.end as _].to_string();
+            xlabel = Some(format!("«{span}»@L{line_no}"));
+            tooltip = Some(format!("{filename}:{line_no}:{}-{}", range.start, range.end));
+        }
+
         let fillcolor = if self.vertices.len() == 1 {
             ", fillcolor=yellow, style=filled"
         } else {
             ""
+        };
+        let xlabel = if let Some(x) = xlabel {
+            format!(r#", xlabel="{x}""#)
+        } else {
+            String::new()
+        };
+        let tooltip = if let Some(x) = tooltip {
+            format!(r#", tooltip="{x}""#)
+        } else {
+            String::new()
         };
 
         let label: &'static str = VertexInfoDiscriminants::from(&vertex.data).into();
         writeln!(&mut self.writer)?;
         writeln!(
             &mut self.writer,
-            r#"node{} [label="{}"{}];"#,
-            vertex.id.id, label, fillcolor
+            r#"node{} [label="{label}"{fillcolor}{xlabel}{tooltip}];"#,
+            vertex.id.id
         )?;
         for ln in format!("{:#?}", &vertex).lines() {
             writeln!(&mut self.writer, "// {ln}")?;
