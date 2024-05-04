@@ -4,14 +4,16 @@ use std::sync::Arc;
 use axum::routing::MethodRouter;
 use axum::{Json, Router};
 use futures::FutureExt;
-use lsp_types::lsp_request;
+use lsp_types::{
+    lsp_request, HoverProviderCapability, InitializeResult, OneOf, ServerCapabilities, ServerInfo,
+};
+use tracing::instrument;
 
 use crate::language_server::error::LspError;
 use crate::state::{AppState, ServerState};
 
 mod error;
 mod methods;
-mod go_to_definition;
 
 macro_rules! route {
     ($router:expr, $($method:tt -> $handler:expr),* $(,)?) => {
@@ -27,9 +29,10 @@ macro_rules! route {
 
 pub fn router() -> Router<Arc<ServerState>> {
     route!(Router::new(),
-        "initialize" -> methods::initialize,
+        "initialize" -> initialize,
         "textDocument/hover" -> methods::hover_range,
         "textDocument/definition" -> methods::go_to_definition,
+        "textDocument/references" -> methods::references,
     )
 }
 
@@ -43,4 +46,23 @@ where
         f(state.0, params.0).map(|res| res.map(Json))
     };
     axum::routing::post(handler)
+}
+
+#[instrument(skip(state), err)]
+async fn initialize(
+    state: Arc<ServerState>,
+    req: lsp_types::InitializeParams,
+) -> Result<InitializeResult, LspError> {
+    Ok(InitializeResult {
+        capabilities: ServerCapabilities {
+            hover_provider: Some(HoverProviderCapability::Simple(true)),
+            definition_provider: Some(OneOf::Left(true)),
+            references_provider: Some(OneOf::Left(true)),
+            ..ServerCapabilities::default()
+        },
+        server_info: Some(ServerInfo {
+            name: "shatterbird".to_string(),
+            version: None,
+        }),
+    })
 }

@@ -2,14 +2,15 @@ use std::collections::HashMap;
 
 use either::Either;
 use eyre::{eyre, OptionExt, Report};
-use lsp_types::Url;
+use futures::join;
+use lsp_types::{Position, Url};
 use mongodb::bson::doc;
 use thiserror::Error;
-use tracing::{instrument, warn};
+use tracing::{instrument, trace, warn};
 
-use crate::model::lang::{EdgeInfo, EdgeInfoDiscriminants};
+use crate::model::lang::{EdgeInfo, EdgeInfoDiscriminants, VertexInfo, VertexInfoDiscriminants};
 use crate::model::{Commit, Edge, FileContent, Line, Node, Range, Vertex};
-use crate::{Id, Storage};
+use crate::{Id, Storage, util};
 
 #[derive(Debug, Error)]
 pub enum ResolveError {
@@ -108,7 +109,6 @@ pub async fn find(
     storage: &Storage,
     edge: Option<EdgeInfoDiscriminants>,
     position: &lsp_types::TextDocumentPositionParams,
-    reverse: bool,
 ) -> Result<ResolvedPosition, FindError> {
     let node = resolve_url(&storage, &position.text_document.uri).await?;
     let lines = match &node.content {
@@ -150,6 +150,8 @@ pub async fn find(
         None => return Ok(result),
     };
     for range in ranges {
+        trace!("trying range {:?}", range.id);
+
         let initital = storage
             .find_one::<Vertex>(
                 doc! {
@@ -163,31 +165,27 @@ pub async fn find(
         let mut queue = Vec::new();
         queue.push(initital.id);
         while let Some(vertex) = queue.pop() {
+            trace!("visiting vertex {:?}", vertex);
             let outgoing: Vec<Edge> = storage
                 .find(
-                    if !reverse {
-                        doc! {
-                            "data.edge": { "$eq": edge },
-                            "data.out_v": { "$eq": vertex }
-                        }
-                    } else {
-                        doc! {
-                            "data.edge": { "$eq": edge },
-                            "$or": [
-                                { "data.in_v": vertex },
-                                { "data.in_vs": vertex },
-                            ]
-                        }
+                    doc! {
+                        "data.edge": { "$eq": edge },
+                        "data.out_v": { "$eq": vertex }
                     },
                     None,
                 )
                 .await?;
+            let outgoing = outgoing
+                .iter()
+                .flat_map(|e| e.data.in_vs())
+                .collect::<Vec<_>>();
             if !outgoing.is_empty() {
+                trace!("found matching edges: {:?}", outgoing);
                 result.found = storage
                     .find(
                         doc! {
                             "_id": {
-                                "$in": outgoing.iter().flat_map(|e| e.data.in_vs()).collect::<Vec<_>>()
+                                "$in": outgoing
                             }
                         },
                         None,
@@ -198,31 +196,18 @@ pub async fn find(
 
             let next = storage
                 .find::<Edge>(
-                    if !reverse {
-                        doc! {
-                            "data.edge": { "$eq": "Next" },
-                            "data.out_v": { "$eq": vertex }
-                        }
-                    } else {
-                        doc! {
-                            "data.edge": { "$eq": "Next" },
-                            "$or": [
-                                {"data.in_v": vertex },
-                                {"data.in_vs": vertex },
-                            ]
-                        }
+                    doc! {
+                        "data.edge": { "$eq": "Next" },
+                        "data.out_v": { "$eq": vertex }
                     },
                     None,
                 )
                 .await?;
+            trace!("following to next vertices: {:?}", next);
             for i in next {
                 match i.data {
                     EdgeInfo::Next(edge) => {
-                        if !reverse {
-                            queue.push(edge.in_v);
-                        } else {
-                            queue.push(edge.out_v);
-                        }
+                        queue.push(edge.in_v);
                     }
                     _ => return Err(eyre!("unexpected edge: {:?}", i).into()),
                 }
@@ -289,4 +274,75 @@ pub async fn find_file_path(storage: &Storage, range: &Range) -> Result<Vec<Stri
         path.push(&name[..])
     }
     Ok(path.into_iter().map(|x| x.to_owned()).collect())
+}
+
+pub fn filter_vertices(
+    vertices: impl IntoIterator<Item = Vertex>,
+    kind: VertexInfoDiscriminants,
+) -> impl Iterator<Item = Vertex> {
+    vertices.into_iter().filter(move |i| VertexInfoDiscriminants::from(&i.data) == kind)
+}
+
+pub async fn find_items(
+    storage: &Storage,
+    results: impl Iterator<Item = Id<Vertex>>,
+) -> Result<Vec<Range>, Report> {
+    let results = results.collect::<Vec<_>>();
+    if results.is_empty() {
+        return Ok(Vec::new())
+    }
+    let items = storage
+        .find::<Edge>(
+            doc! {
+                "data.out_v": { "$in": results },
+                "data.edge": { "$eq": <&str>::from(EdgeInfoDiscriminants::Item) }
+            },
+            None,
+        )
+        .await?
+        .into_iter()
+        .flat_map(|e| e.data.in_vs().collect::<Vec<_>>())
+        .collect::<Vec<_>>();
+    let ranges = storage
+        .find::<Vertex>(
+            doc! {
+                "_id": { "$in": items},
+                "data.vertex": { "$eq": <&str>::from(VertexInfoDiscriminants::Range) }
+            },
+            None,
+        )
+        .await?;
+    let ranges = ranges
+        .into_iter()
+        .filter_map(|x| match x.data {
+            VertexInfo::Range { range, .. } => Some(range),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+    let ranges = storage
+        .find::<Range>(
+            doc! {
+                "_id": { "$in": ranges }
+            },
+            None,
+        )
+        .await?;
+    Ok(ranges)
+}
+
+pub async fn to_location(storage: &Storage, range: &Range) -> eyre::Result<lsp_types::Location> {
+    let path = async {
+        let path = find_file_path(storage, &range).await?;
+        format!("bird:///{}", path.join("/")).parse().map_err(Report::new)
+    };
+    let line_no = util::graph::find_line_no(storage, &range);
+    let (path, line_no) = join!(path, line_no);
+    let (path, line_no) = (path?, line_no?);
+    Ok(lsp_types::Location {
+        uri: path,
+        range: lsp_types::Range {
+            start: Position::new(line_no as _, range.start),
+            end: Position::new(line_no as _, range.end),
+        },
+    })
 }
