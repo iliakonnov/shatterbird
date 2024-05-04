@@ -18,8 +18,8 @@ use tracing::instrument;
 
 #[derive(Args)]
 pub struct Graph {
-    #[arg(long)]
-    range_id: Id<Range>,
+    #[arg(long, required = true)]
+    ranges: Vec<Id<Range>>,
 
     #[clap(long)]
     dot: Option<PathBuf>,
@@ -32,7 +32,7 @@ pub struct Graph {
 }
 
 struct State<W> {
-    range_id: Id<Range>,
+    ranges: Vec<Id<Range>>,
     vertices: HashMap<Id<Vertex>, bool>,
     edges: HashSet<Id<Edge>>,
     writer: W,
@@ -40,36 +40,39 @@ struct State<W> {
 
 impl Graph {
     pub async fn run(self, app: App) -> eyre::Result<()> {
-        let range = app
+        let ranges = app
             .storage
-            .get(self.range_id)
-            .await?
-            .ok_or_eyre(eyre!("range {} not found", self.range_id))?;
+            .find::<Range>(doc! { "_id": {"$in": &self.ranges }}, None)
+            .await?;
         let initital = app
             .storage
-            .find_one::<Vertex>(
+            .find::<Vertex>(
                 doc! {
                     "data.vertex": { "$eq": "Range" },
-                    "data.range": { "$eq": range.id },
+                    "data.range": { "$in": ranges.iter().map(|r| r.id).collect::<Vec<_>>() },
                 },
                 None,
             )
-            .await?
-            .ok_or_eyre(eyre!("no matching vertex found for {}", range.id))?;
+            .await?;
 
         let mut output = Vec::new();
 
         {
             let mut state = State {
-                range_id: self.range_id,
+                ranges: self.ranges,
                 vertices: HashMap::new(),
                 edges: HashSet::new(),
                 writer: BufWriter::new(&mut output),
             };
 
             writeln!(&mut state.writer, "strict digraph {{")?;
-            writeln!(&mut state.writer, "overlap = scale; splines = true; sep = 1;")?;
-            state.visit_vertex(&app.storage, initital.id).await?;
+            writeln!(
+                &mut state.writer,
+                "overlap = scale; splines = true; sep = 1;"
+            )?;
+            for i in initital {
+                state.visit_vertex(&app.storage, i.id, true).await?;
+            }
             writeln!(&mut state.writer, "}}")?;
         }
 
@@ -139,6 +142,7 @@ impl<W: Write> State<W> {
         &mut self,
         storage: &shatterbird_storage::Storage,
         id: Id<Vertex>,
+        root: bool,
     ) -> eyre::Result<()> {
         if self.vertices.contains_key(&id) {
             return Ok(());
@@ -149,12 +153,14 @@ impl<W: Write> State<W> {
             .await?
             .ok_or_eyre(eyre!("vertex {} not found", id))?;
 
-        if let VertexInfo::Document(_)
-        | VertexInfo::PackageInformation(_)
-        | VertexInfo::Moniker(_) = vertex.data
-        {
-            self.vertices.insert(id, false);
-            return Ok(());
+        if !root {
+            if let VertexInfo::Document(_)
+            | VertexInfo::PackageInformation(_)
+            | VertexInfo::Moniker(_) = vertex.data
+            {
+                self.vertices.insert(id, false);
+                return Ok(());
+            }
         }
         self.vertices.insert(id, true);
 
@@ -166,19 +172,24 @@ impl<W: Write> State<W> {
                 .get(*range)
                 .await?
                 .ok_or_eyre(eyre!("{range} not found"))?;
-            let line_no = util::graph::find_line_no(storage, &range).await?;
+            let line_no = 1 + util::graph::find_line_no(storage, &range).await?;
             let filename = util::graph::find_file_path(storage, &range).await?;
             let filename = &filename[1..].join("/");
             let line = storage
                 .get(range.line_id)
                 .await?
                 .ok_or_eyre(eyre!("line {} not found", range.line_id))?;
-            let span = line.text[range.start as _..range.end as _].to_string();
+            let start = range.start.min(line.text.len() as _) as _;
+            let end = range.end.min(line.text.len() as _) as _;
+            let span = line.text[start..end].to_string();
             xlabel = Some(format!("«{span}»@L{line_no}"));
-            tooltip = Some(format!("{filename}:{line_no}:{}-{}", range.start, range.end));
+            tooltip = Some(format!(
+                "{filename}:{line_no}:{}-{}",
+                range.start, range.end
+            ));
         }
 
-        let fillcolor = if self.vertices.len() == 1 {
+        let fillcolor = if root {
             ", fillcolor=yellow, style=filled"
         } else {
             ""
@@ -248,11 +259,11 @@ impl<W: Write> State<W> {
         if out {
             // () <- ...
             for in_v in edge.data.in_vs() {
-                self.visit_vertex(storage, in_v).await?;
+                self.visit_vertex(storage, in_v, false).await?;
             }
         } else {
             // () -> ...
-            self.visit_vertex(storage, edge.data.out_v()).await?;
+            self.visit_vertex(storage, edge.data.out_v(), false).await?;
         }
 
         let in_vs = edge
