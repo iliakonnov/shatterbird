@@ -3,13 +3,13 @@
 use std::io::BufReader;
 use std::path::PathBuf;
 
+use crate::lsif::RootMapping;
 use clap::{arg, Parser, Subcommand};
 use tracing::{debug, info};
 use tracing_error::ErrorLayer;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 use tracing_subscriber::{Layer, Registry};
-use crate::lsif::RootMapping;
 
 mod git;
 mod lsif;
@@ -29,8 +29,18 @@ enum Command {
         #[arg(long)]
         input: PathBuf,
 
-        #[arg(long, required=true)]
+        #[arg(long, required = true)]
         roots: Vec<RootMapping>,
+
+        #[clap(
+            long,
+            default_missing_value("true"),
+            default_value("false"),
+            num_args(0..=1),
+            require_equals(true),
+            action = clap::ArgAction::Set,
+        )]
+        save: bool,
     },
     Git {
         #[arg(long)]
@@ -59,18 +69,16 @@ async fn main() -> eyre::Result<()> {
 
     info!("running command {:?}", args.command);
     match args.command {
-        Command::Lsif { input, roots } => {
-            match input.as_os_str().as_encoded_bytes() {
-                b"-" => {
-                    let stdin = BufReader::new(std::io::stdin());
-                    lsif::load_lsif(&storage, stdin, roots).await?;
-                }
-                _ => {
-                    let file = BufReader::new(std::fs::File::open(input)?);
-                    lsif::load_lsif(&storage, file, roots).await?;
-                }
+        Command::Lsif { input, roots, save } => match input.as_os_str().as_encoded_bytes() {
+            b"-" => {
+                let stdin = BufReader::new(std::io::stdin());
+                lsif::load_lsif(&storage, stdin, roots, save).await?;
             }
-        }
+            _ => {
+                let file = BufReader::new(std::fs::File::open(input)?);
+                lsif::load_lsif(&storage, file, roots, save).await?;
+            }
+        },
         Command::Git { root, max_depth } => {
             git::index(&storage, &root, max_depth).await?;
         }

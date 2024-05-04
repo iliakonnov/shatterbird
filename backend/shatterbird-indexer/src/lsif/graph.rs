@@ -5,13 +5,14 @@ use bumpalo::Bump;
 use multimap::MultiMap;
 use rayon::prelude::*;
 
+use crate::lsif;
 use lsp_types::lsif::{Document, Edge, Element, Entry, Id, Vertex};
 
 use super::lsif_ext::EdgeExtensions;
 
 macro_rules! entry_ref {
     ($name:ident, $func:ident -> $ty:ty, $pat:pat => $val:expr) => {
-        #[derive(Copy, Clone)]
+        #[derive(Debug, Copy, Clone)]
         pub struct $name<'a> {
             entry: &'a Entry,
         }
@@ -100,5 +101,9 @@ impl<'a> Graph<'a> {
 
     pub fn documents(&self) -> impl IntoParallelIterator<Item = DocumentRef<'_>> {
         self.documents.par_iter().copied()
+    }
+
+    pub fn vertices(&self) -> impl IntoParallelIterator<Item = (&'_ Id, VertexRef<'_>)> {
+        self.vertices.par_iter().map(|(k, v)| (k, *v))
     }
 }

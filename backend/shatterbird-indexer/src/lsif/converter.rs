@@ -1,10 +1,12 @@
+use either::Either;
 use eyre::{eyre, OptionExt};
 use futures::future::join_all;
 use std::hash::Hash;
+use std::ops::Deref;
 
 use futures::FutureExt;
 use rayon::prelude::*;
-use scc::{Bag, HashMap};
+use scc::{Bag, HashMap, HashSet};
 use tracing::{debug, debug_span, info, info_span, instrument, trace, warn, Level};
 
 use crate::lsif::RootMapping;
@@ -37,8 +39,8 @@ pub struct Converter<'g, 's> {
     files: HashMap<lsif::Id, FileWithPath>,
     lines: HashMap<LineKey, Line>,
     ranges: HashMap<lsif::Id, Range>,
-    vertices: HashMap<lsif::Id, Vertex>,
-    edges: Bag<Edge>,
+    vertices: HashMap<lsif::Id, Option<Vertex>>,
+    edges: HashMap<lsif::Id, Either<Id<Edge>, Edge>>,
 }
 
 impl<'g, 's> Converter<'g, 's> {
@@ -51,7 +53,7 @@ impl<'g, 's> Converter<'g, 's> {
             lines: HashMap::new(),
             ranges: HashMap::new(),
             vertices: HashMap::new(),
-            edges: Bag::new(),
+            edges: HashMap::new(),
         }
     }
 
@@ -103,7 +105,9 @@ impl<'g, 's> Converter<'g, 's> {
                 let mut vertices = Vec::new();
                 let mut next = self.vertices.first_entry_async().await;
                 while let Some(curr) = next {
-                    vertices.push(curr.get().clone());
+                    if let Some(vertex) = curr.get().as_ref() {
+                        vertices.push(vertex.clone());
+                    }
                     next = curr.next_async().await
                 }
                 info!("saving {} vertices", vertices.len());
@@ -111,11 +115,16 @@ impl<'g, 's> Converter<'g, 's> {
             },
             async {
                 let _span = info_span!("saving edges").entered();
-                info!("saving {} edges", self.edges.len());
-                self.storage
-                    .access()
-                    .insert_many(self.edges.into_iter(), None)
-                    .await?;
+                let mut edges = Vec::new();
+                let mut next = self.edges.first_entry_async().await;
+                while let Some(curr) = next {
+                    if let Either::Right(edge) = curr.get().as_ref() {
+                        edges.push(edge.clone());
+                    }
+                    next = curr.next_async().await
+                }
+                info!("saving {} edges", edges.len());
+                self.storage.access().insert_many(edges, None).await?;
                 Ok(())
             }
         )?;
@@ -207,10 +216,10 @@ impl<'g, 's> Converter<'g, 's> {
         self.vertices
             .insert_async(
                 doc_id.clone(),
-                Vertex {
+                Some(Vertex {
                     id: vertex_id,
                     data: VertexInfo::Document(doc.clone()),
-                },
+                }),
             )
             .await
             .expect("doc_id is unique");
@@ -252,19 +261,24 @@ impl<'g, 's> Converter<'g, 's> {
 
     #[instrument(level = Level::DEBUG, skip_all, ret, err, fields(out_v = %out_v, edge_id = ?edge.entry().id))]
     fn load_edge(&self, out_v: Id<Vertex>, edge: EdgeRef<'_>) -> eyre::Result<Option<Id<Edge>>> {
+        let id = {
+            let entry = self.edges.entry(edge.entry().id.clone());
+            let entry = match entry {
+                Entry::Occupied(existing) => {
+                    return Ok(Some(existing.get().as_ref().either(|x| *x, |x| x.id)))
+                }
+                Entry::Vacant(vacant) => vacant,
+            };
+            let id = Id::new();
+            entry.insert_entry(Either::Left(id));
+            id
+        };
+
         trace!("loading edge {:?}", edge.entry().id);
         let in_vs = edge
             .edge()
             .edge_data()
             .par_each()
-            .filter(|data| !self.vertices.contains(data.in_v))
-            .collect_vec_list();
-        if in_vs.par_iter().map(|x| x.len()).sum::<usize>() == 0 {
-            return Ok(None);
-        }
-        let in_vs = in_vs
-            .into_par_iter()
-            .flatten()
             .map(|data| self.visit_edge(data))
             .collect::<Result<Vec<_>, _>>()?
             .par_iter()
@@ -282,41 +296,46 @@ impl<'g, 's> Converter<'g, 's> {
         };
         let edge_data_multi = EdgeDataMultiIn { in_vs, out_v };
 
-        let id = Id::new();
-        self.edges.push(Edge {
-            id,
-            data: match edge.edge() {
-                lsif::Edge::Contains(_x) => EdgeInfo::Contains(edge_data_multi),
-                lsif::Edge::Moniker(_x) => EdgeInfo::Moniker(edge_data),
-                lsif::Edge::NextMoniker(_x) => EdgeInfo::NextMoniker(edge_data),
-                lsif::Edge::Next(_x) => EdgeInfo::Next(edge_data),
-                lsif::Edge::PackageInformation(_x) => EdgeInfo::PackageInformation(edge_data),
-                lsif::Edge::Item(x) => EdgeInfo::Item(Item {
-                    document: match self.vertices.get(&x.document) {
-                        Some(x) => x.get().id(),
-                        None => {
-                            return Err(eyre::eyre!(
-                                "{:?} references document {:?} which is not yet loaded",
-                                edge.entry(),
-                                x.document
-                            ))
-                        }
-                    },
-                    property: x.property.clone(),
-                    edge_data: edge_data_multi,
-                }),
-                lsif::Edge::Definition(_x) => EdgeInfo::Definition(edge_data),
-                lsif::Edge::Declaration(_x) => EdgeInfo::Declaration(edge_data),
-                lsif::Edge::Hover(_x) => EdgeInfo::Hover(edge_data),
-                lsif::Edge::References(_x) => EdgeInfo::References(edge_data),
-                lsif::Edge::Implementation(_x) => EdgeInfo::Implementation(edge_data),
-                lsif::Edge::TypeDefinition(_x) => EdgeInfo::TypeDefinition(edge_data),
-                lsif::Edge::FoldingRange(_x) => EdgeInfo::FoldingRange(edge_data),
-                lsif::Edge::DocumentLink(_x) => EdgeInfo::DocumentLink(edge_data),
-                lsif::Edge::DocumentSymbol(_x) => EdgeInfo::DocumentSymbol(edge_data),
-                lsif::Edge::Diagnostic(_x) => EdgeInfo::Diagnostic(edge_data),
-            },
-        });
+        self.edges
+            .entry(edge.entry().id.clone())
+            .insert_entry(Either::Right(Edge {
+                id,
+                data: match edge.edge() {
+                    lsif::Edge::Contains(_x) => EdgeInfo::Contains(edge_data_multi),
+                    lsif::Edge::Moniker(_x) => EdgeInfo::Moniker(edge_data),
+                    lsif::Edge::NextMoniker(_x) => EdgeInfo::NextMoniker(edge_data),
+                    lsif::Edge::Next(_x) => EdgeInfo::Next(edge_data),
+                    lsif::Edge::PackageInformation(_x) => EdgeInfo::PackageInformation(edge_data),
+                    lsif::Edge::Item(x) => EdgeInfo::Item(Item {
+                        document: match self
+                            .vertices
+                            .get(&x.document)
+                            .and_then(|x| x.get().as_ref().map(|x| x.id))
+                        {
+                            Some(x) => x,
+                            None => {
+                                return Err(eyre::eyre!(
+                                    "{:?} references document {:?} which is not loaded",
+                                    edge.entry(),
+                                    x.document
+                                ))
+                            }
+                        },
+                        property: x.property.clone(),
+                        edge_data: edge_data_multi,
+                    }),
+                    lsif::Edge::Definition(_x) => EdgeInfo::Definition(edge_data),
+                    lsif::Edge::Declaration(_x) => EdgeInfo::Declaration(edge_data),
+                    lsif::Edge::Hover(_x) => EdgeInfo::Hover(edge_data),
+                    lsif::Edge::References(_x) => EdgeInfo::References(edge_data),
+                    lsif::Edge::Implementation(_x) => EdgeInfo::Implementation(edge_data),
+                    lsif::Edge::TypeDefinition(_x) => EdgeInfo::TypeDefinition(edge_data),
+                    lsif::Edge::FoldingRange(_x) => EdgeInfo::FoldingRange(edge_data),
+                    lsif::Edge::DocumentLink(_x) => EdgeInfo::DocumentLink(edge_data),
+                    lsif::Edge::DocumentSymbol(_x) => EdgeInfo::DocumentSymbol(edge_data),
+                    lsif::Edge::Diagnostic(_x) => EdgeInfo::Diagnostic(edge_data),
+                },
+            }));
 
         Ok(Some(id))
     }
@@ -342,9 +361,9 @@ impl<'g, 's> Converter<'g, 's> {
     #[instrument(level = Level::DEBUG, skip_all, ret, err, fields(vertex_id = ?v))]
     fn load_vertex(&self, v: &lsif::Id) -> eyre::Result<Option<Id<Vertex>>> {
         let entry = self.vertices.entry(v.clone());
-        let entry = match entry {
-            Entry::Occupied(existing) => return Ok(Some(existing.get().id())),
-            Entry::Vacant(vacant) => vacant,
+        let mut entry = match entry {
+            Entry::Occupied(existing) => return Ok(existing.get().as_ref().map(|x| x.id)),
+            Entry::Vacant(vacant) => vacant.insert_entry(None),
         };
         let vertex = match self.graph.vertex(v) {
             Some(x) => x,
@@ -396,7 +415,7 @@ impl<'g, 's> Converter<'g, 's> {
             },
         };
         let id = Id::new();
-        entry.insert_entry(Vertex { id, data });
+        entry.insert(Some(Vertex { id, data }));
         Ok(Some(id))
     }
 
