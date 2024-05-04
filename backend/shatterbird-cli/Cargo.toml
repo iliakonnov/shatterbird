@@ -1,0 +1,23 @@
+[package]
+name = "shatterbird-cli"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+clap = "4.5.4"
+color-eyre = "0.6.3"
+layout-rs = "0.1.2"
+eyre = "0.6.12"
+futures = "0.3.30"
+tokio = { version = "1.36.0", features = ["full"] }
+tracing = "0.1.40"
+tracing-error = "0.2"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+bson = "2.10.0"
+viuer = "0.7.1"
+resvg = "0.41.0"
+image = "0.24.9"
+crossterm = "0.27.0"
+
+shatterbird-storage = { path = "../shatterbird-storage" }
+shatterbird-utils = { path = "../shatterbird-utils" }

@@ -3,6 +3,8 @@ use bson::doc;
 use clap::Args;
 use eyre::{eyre, OptionExt};
 use futures::FutureExt;
+use image::Rgba;
+use layout::backends::svg::SVGWriter;
 use shatterbird_storage::model::lang::{
     EdgeInfoDiscriminants, VertexInfo, VertexInfoDiscriminants,
 };
@@ -18,8 +20,14 @@ pub struct Graph {
     #[arg(long)]
     range_id: Id<Range>,
 
-    #[arg(short)]
-    output: PathBuf,
+    #[clap(long)]
+    dot: Option<PathBuf>,
+
+    #[clap(long)]
+    svg: Option<PathBuf>,
+
+    #[clap(long, short, action)]
+    show: bool,
 }
 
 struct State<W> {
@@ -47,16 +55,76 @@ impl Graph {
             )
             .await?
             .ok_or_eyre(eyre!("no matching vertex found for {}", range.id))?;
-        let mut state = State {
-            range_id: self.range_id,
-            vertices: HashMap::new(),
-            edges: HashSet::new(),
-            writer: BufWriter::new(std::fs::File::create(self.output)?),
+
+        let mut output = Vec::new();
+
+        {
+            let mut state = State {
+                range_id: self.range_id,
+                vertices: HashMap::new(),
+                edges: HashSet::new(),
+                writer: BufWriter::new(&mut output),
+            };
+
+            writeln!(&mut state.writer, "strict digraph {{")?;
+            state.visit_vertex(&app.storage, initital.id).await?;
+            writeln!(&mut state.writer, "}}")?;
+        }
+
+        if let Some(dot_out) = self.dot {
+            std::fs::write(dot_out, &output)?;
+        }
+
+        let svg = if self.svg.is_some() || self.show {
+            let text = std::str::from_utf8(&output).expect("graph must be valid UTF-8");
+            let ast = layout::gv::parser::DotParser::new(text)
+                .process()
+                .map_err(|e| eyre!("failed to parse graph: {}", e))?;
+            let mut graph = layout::gv::builder::GraphBuilder::new();
+            graph.visit_graph(&ast);
+            let mut graph = graph.get();
+            let mut svg = SVGWriter::new();
+            graph.do_it(false, false, false, &mut svg);
+            Some(svg.finalize())
+        } else {
+            None
         };
 
-        writeln!(&mut state.writer, "strict digraph {{")?;
-        state.visit_vertex(&app.storage, initital.id).await?;
-        writeln!(&mut state.writer, "}}")?;
+        if let Some(svg_out) = self.svg {
+            let svg = svg.as_ref().expect("graph must have been already rendered");
+            std::fs::write(svg_out, &svg[..])?;
+        }
+
+        if self.show {
+            let svg = svg.as_ref().expect("graph must have been already rendered");
+
+            let options = resvg::usvg::Options {
+                ..Default::default()
+            };
+            let mut fonts = resvg::usvg::fontdb::Database::new();
+            fonts.load_system_fonts();
+            let tree = resvg::usvg::Tree::from_str(&svg[..], &options, &fonts)?;
+            let size = tree.size();
+            let (width, height) = (size.width() as _, size.height() as _);
+
+            let mut pixmap = resvg::tiny_skia::Pixmap::new(width, height).unwrap();
+            resvg::render(
+                &tree,
+                resvg::tiny_skia::Transform::default(),
+                &mut pixmap.as_mut(),
+            );
+
+            let image = image::RgbaImage::from_raw(width, height, pixmap.data().to_vec())
+                .ok_or_eyre(eyre!("failed to create image"))?;
+            let mut on_white = image::RgbaImage::from_fn(width, height, |_, _| Rgba([255, 255, 255, 255]));
+            image::imageops::overlay(&mut on_white, &image, 0, 0);
+            let image = image::DynamicImage::ImageRgba8(on_white);
+            viuer::print(&image, &viuer::Config{
+                absolute_offset: false,
+                ..Default::default()
+            })?;
+        }
+
         Ok(())
     }
 }
@@ -158,8 +226,13 @@ impl<W: Write> State<W> {
             .in_vs()
             .filter(|x| self.vertices.get(x).copied().unwrap_or_default())
             .collect::<Vec<_>>();
-        if !self.vertices.get(&edge.data.out_v()).copied().unwrap_or_default() {
-            return Ok(())
+        if !self
+            .vertices
+            .get(&edge.data.out_v())
+            .copied()
+            .unwrap_or_default()
+        {
+            return Ok(());
         }
 
         let label: &'static str = EdgeInfoDiscriminants::from(&edge.data).into();
