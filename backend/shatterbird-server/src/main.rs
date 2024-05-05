@@ -38,8 +38,8 @@ async fn main() -> eyre::Result<()> {
     let listener = tokio::net::TcpListener::bind(&settings.addr).await?;
     let router = Router::new()
         .layer(tower_http::trace::TraceLayer::new_for_http())
-        .nest("/fs", filesystem::router())
-        .nest("/lsp", language_server::router())
+        .nest("/api/fs", filesystem::router())
+        .nest("/api/lsp", language_server::router())
         .fallback(|| async { (StatusCode::NOT_FOUND, "unknown route") })
         .with_state(state)
         .layer(tower_http::cors::CorsLayer::permissive());

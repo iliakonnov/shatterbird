@@ -1,31 +1,47 @@
 use either::Either;
 use serde::{Deserialize, Serialize};
 use strum::{EnumDiscriminants, EnumTryAs};
+use ts_rs::TS;
 
 use super::files::Range;
-use crate::Model;
+use crate::{ts, Model};
 use mongo_model::Id;
 
-#[derive(Debug, Clone, Serialize, Deserialize, Model)]
+/// Узел графа
+#[derive(Debug, Clone, Serialize, Deserialize, Model, TS)]
 #[mongo_model(collection = "vertices")]
+#[ts(export)]
 pub struct Vertex {
+    /// Идентификатор объекта в базе данных
     #[serde(rename = "_id")]
+    #[ts(as = "ts::Id<Self>")]
     pub id: Id<Self>,
+
+    /// Информация об узле, предоставленная LSIF
+    #[ts(inline, as = "ts::VertexInfo")]
     pub data: VertexInfo,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Model)]
+/// Ребро графа, связывающее те или иные узлы
+#[derive(Debug, Clone, Serialize, Deserialize, Model, TS)]
 #[mongo_model(collection = "edges")]
+#[ts(export)]
 pub struct Edge {
+    /// Идентификатор объекта в базе данных
     #[serde(rename = "_id")]
+    #[ts(as = "ts::Id<Self>")]
     pub id: Id<Self>,
+
+    /// Информация об ребре, предоставленная LSIF
+    #[ts(inline, as = "ts::EdgeInfo")]
     pub data: EdgeInfo,
 }
+
 
 // Same as https://docs.rs/lsp-types/latest/lsp_types/lsif/enum.Edge.html
 // But with all `Id`s replaced with `Id<Vertex>`.
 #[derive(Debug, Clone, Serialize, Deserialize, EnumTryAs, EnumDiscriminants)]
-#[strum_discriminants(derive(strum::EnumString, strum::IntoStaticStr))]
+#[strum_discriminants(derive(strum::EnumString, strum::IntoStaticStr, TS))]
 #[serde(tag = "edge")]
 pub enum EdgeInfo {
     Contains(EdgeDataMultiIn),
@@ -63,14 +79,13 @@ pub struct EdgeData {
 pub struct Item {
     pub document: Id<Vertex>,
     pub property: Option<lsp_types::lsif::ItemKind>,
-    #[serde(flatten)]
     pub edge_data: EdgeDataMultiIn,
 }
 
 // Same as https://docs.rs/lsp-types/latest/lsp_types/lsif/enum.Vertex.html
 // But with all Ranges replaced with Id<Range> instead.
 #[derive(Debug, Clone, Serialize, Deserialize, EnumTryAs, EnumDiscriminants)]
-#[strum_discriminants(derive(strum::EnumString, strum::IntoStaticStr))]
+#[strum_discriminants(derive(strum::EnumString, strum::IntoStaticStr, TS))]
 #[serde(tag = "vertex")]
 pub enum VertexInfo {
     MetaData(lsp_types::lsif::MetaData),

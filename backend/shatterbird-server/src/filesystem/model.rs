@@ -15,11 +15,14 @@ pub enum EitherNode {
     NotFound(String),
 }
 
+/// Хранит полную информацию об узле файлового дерева
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export)]
 pub struct FullNode {
     #[serde(flatten)]
     pub info: NodeInfo,
+
+    #[ts(inline)]
     pub content: ExpandedFileContent,
 }
 
@@ -27,17 +30,27 @@ pub struct FullNode {
 #[ts(export)]
 pub enum ExpandedFileContent {
     Symlink {
+        /// Ссылка на целевой файл
         target: String,
     },
     Directory {
+        /// Дочерние узлы этой директории вместе с их именами
+        #[ts(inline)]
         children: HashMap<String, NodeInfo>,
     },
     Text {
+        /// Размер в байтах
         size: u64,
+
+        /// Строки файла
+        #[ts(inline)]
         lines: Vec<Line>,
     },
     Blob {
+        /// Размер в байтах
         size: u64,
+
+        /// Идентификатор этого файла в базе данных
         #[ts(as = "ts::Id<BlobFile>")]
         content: Id<BlobFile>,
     },
@@ -46,8 +59,12 @@ pub enum ExpandedFileContent {
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export)]
 pub struct NodeInfo {
+    /// Идентифкатор этого узла в базе данных
     #[ts(as = "ts::Id<Node>")]
     pub _id: Id<Node>,
+
+    /// Тип узла
+    #[ts(inline)]
     pub kind: ContentKind,
 }
 
