@@ -1,12 +1,11 @@
 use std::collections::HashMap;
-use std::sync::Exclusive;
 
 use bumpalo::Bump;
 use multimap::MultiMap;
 use rayon::prelude::*;
 
-use crate::lsif;
 use lsp_types::lsif::{Document, Edge, Element, Entry, Id, Vertex};
+use crate::exclusive::Exclusive;
 
 use super::lsif_ext::EdgeExtensions;
 

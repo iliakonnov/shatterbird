@@ -1,5 +1,3 @@
-#![feature(exclusive_wrapper)]
-
 use std::io::BufReader;
 use std::path::PathBuf;
 
@@ -13,6 +11,7 @@ use tracing_subscriber::{Layer, Registry};
 
 mod git;
 mod lsif;
+mod exclusive;
 
 #[derive(Parser, Debug)]
 struct Args {
