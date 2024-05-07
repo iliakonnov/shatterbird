@@ -11,6 +11,8 @@
       <sourceFolder url="file://$MODULE_DIR$/backend/mongo-model/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/backend/mongo-model/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/backend/shatterbird-cli/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/backend/thirdparty/lsp-types/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/backend/thirdparty/lsp-types/tests" isTestSource="true" />
       <excludeFolder url="file://$MODULE_DIR$/backend/target" />
       <excludeFolder url="file://$MODULE_DIR$/frontend/dist" />
     </content>

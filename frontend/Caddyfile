@@ -1,0 +1,10 @@
+* {
+    handle_path /api/* {
+		reverse_proxy h2c://localhost:3000
+	}
+
+	handle {
+		root * /var/www
+		file_server
+	}
+}

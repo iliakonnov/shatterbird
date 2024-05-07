@@ -3,14 +3,13 @@ import {FullNode} from "../server-types/FullNode.ts";
 import {NodeInfo} from "../server-types/NodeInfo.ts";
 import {Node} from "../server-types/Node.ts";
 import {Id} from "../server-types/Id.ts";
-import {BlobFile} from "../server-types/BlobFile.ts";
 
 export default class FsClient {
     readonly gitCommits: Map<string, Commit> = new Map();
     readonly nodes: Map<string, NodeInfo | FullNode> = new Map();
 
     async listCommits(): Promise<Commit[]> {
-        const response = await fetch('http://localhost:3000/fs/commits');
+        const response = await fetch('/api/fs/commits');
         const data = await response.json() as Commit[];
         for (let commit of data) {
             this.gitCommits.set(commit.oid, commit);
@@ -24,7 +23,7 @@ export default class FsClient {
             return found;
         }
 
-        const response = await fetch(`http://localhost:3000/fs/commits/by-oid/${oid}`);
+        const response = await fetch(`/api/fs/commits/by-oid/${oid}`);
         if (response.status === 404) {
             return null;
         }
@@ -39,7 +38,7 @@ export default class FsClient {
             return found;
         }
 
-        const response = await fetch(`http://localhost:3000/fs/nodes/${nodeId.$oid}`);
+        const response = await fetch(`/api/fs/nodes/${nodeId.$oid}`);
         if (response.status === 404) {
             return null;
         }
@@ -54,7 +53,7 @@ export default class FsClient {
             return found;
         }
 
-        const response = await fetch(`http://localhost:3000/fs/nodes/${nodeId.$oid}?short=true`);
+        const response = await fetch(`/api/fs/nodes/${nodeId.$oid}?short=true`);
         if (response.status === 404) {
             return null;
         }
@@ -64,7 +63,7 @@ export default class FsClient {
     }
 
     async getBlob(blobId: Id<Node>): Promise<Uint8Array | null> {
-        const response = await fetch(`http://localhost:3000/fs/blobs/${blobId.$oid}`);
+        const response = await fetch(`/api/fs/blobs/${blobId.$oid}`);
         if (response.status === 404) {
             return null;
         }

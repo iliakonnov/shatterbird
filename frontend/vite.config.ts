@@ -19,6 +19,11 @@ export default defineConfig({
         },
         sourcemap: true,
     },
+    preview: {
+        proxy: {
+            "/api": "http://localhost:3000/"
+        }
+    },
     plugins: [
         viteStaticCopy({
             targets: [

@@ -6,7 +6,6 @@ import {
     MessageTransports,
     MessageWriter, ResponseMessage,
 } from "vscode-languageclient";
-import {Connect, WebSocket} from "vite";
 
 export class LanguageClient extends BaseLanguageClient {
     constructor() {
@@ -51,8 +50,7 @@ class Writer extends AbstractMessageWriter implements MessageWriter {
             return;
         }
         const {id, method, params} = msg;
-        // TODO: Get current commit
-        fetch(`http://localhost:3000/lsp/${method}`, {
+        fetch(`/api/lsp/${method}`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -69,6 +67,5 @@ class Writer extends AbstractMessageWriter implements MessageWriter {
     }
 
     end(): void {
-        throw new Error("Method not implemented.");
     }
 }

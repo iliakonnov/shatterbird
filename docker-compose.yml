@@ -1,0 +1,8 @@
+services:
+  backend:
+    build:
+      context: ./backend/
+      target: shatterbird-server
+  frontend:
+    build:
+      context: ./frontend/
