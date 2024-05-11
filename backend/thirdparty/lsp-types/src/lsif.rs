@@ -44,7 +44,9 @@ pub struct ToolInfo {
 
 #[derive(Debug, PartialEq, Serialize, Deserialize, Clone, Copy)]
 pub enum Encoding {
-    /// Currently only 'utf-16' is supported due to the limitations in LSP.
+    #[serde(rename = "utf-8")]
+    Utf8,
+    
     #[serde(rename = "utf-16")]
     Utf16,
 }
@@ -269,7 +271,8 @@ pub struct Item {
 #[serde(rename_all = "camelCase")]
 pub struct Document {
     pub uri: Url,
-    pub language_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub language_id: Option<String>,
 }
 
 /// <https://github.com/Microsoft/language-server-protocol/blob/master/indexFormat/specification.md#result-set>

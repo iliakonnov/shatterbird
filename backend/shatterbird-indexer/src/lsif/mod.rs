@@ -29,14 +29,15 @@ pub async fn load_lsif<R: std::io::BufRead>(
     let mut graph = Graph::new(&arena);
     for line in input.lines() {
         let line = line?;
-        let entry = serde_json::from_str(&line)?;
+        let entry = serde_json::from_str(&line)
+            .map_err(|e| eyre!("failed to parse line {}: {}", line, e))?;
         graph.add(entry)
     }
 
     info!("converting graph");
     let converter = Converter::new(storage, &graph, roots);
     converter.load().await?;
-    
+
     if save {
         info!("saving");
         converter.save().await?;

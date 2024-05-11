@@ -57,6 +57,9 @@ pub enum MonikerKind {
     /// The moniker represents a symbol that is local to a project (e.g. a local
     /// variable of a function, a class not visible outside the project, ...)
     Local,
+    /// SCIP-specific
+    /// https://github.com/sourcegraph/scip/blob/6495bfbd33671ccd4a2358505fdf30058140ff32/bindings/go/scip/convert.go#L204
+    Implementation
 }
 
 #[derive(Debug, Eq, PartialEq, Clone, Deserialize, Serialize)]
@@ -84,7 +87,8 @@ pub struct Moniker {
     pub identifier: String,
 
     /// The scope in which the moniker is unique
-    pub unique: UniquenessLevel,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub unique: Option<UniquenessLevel>,
 
     /// The moniker kind if known.
     #[serde(skip_serializing_if = "Option::is_none")]

@@ -2731,6 +2731,7 @@ pub enum MarkupKind {
 #[derive(Debug, Eq, PartialEq, Deserialize, Serialize, Clone)]
 pub struct MarkupContent {
     pub kind: MarkupKind,
+    #[serde(default)]
     pub value: String,
 }
 
