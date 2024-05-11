@@ -79,6 +79,7 @@ pub struct EdgeData {
 pub struct Item {
     pub document: Id<Vertex>,
     pub property: Option<lsp_types::lsif::ItemKind>,
+    #[serde(flatten)]
     pub edge_data: EdgeDataMultiIn,
 }
 
