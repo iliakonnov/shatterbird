@@ -25,6 +25,10 @@
     {
       "scheme": "http",
       "path": "/shatterbird"
+    },
+    {
+      "scheme": "https",
+      "path": "/shatterbird"
     }
   ]
 }

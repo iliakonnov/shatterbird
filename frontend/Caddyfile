@@ -1,10 +1,10 @@
-* {
-    handle_path /api/* {
-		reverse_proxy h2c://localhost:3000
+{$CADDY_DOMAIN} {
+    handle /api/* {
+		reverse_proxy h2c://{$BACKEND_HOST}
 	}
 
 	handle {
-		root * /var/www
+		root * /srv
 		file_server
 	}
 }

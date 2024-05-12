@@ -14,9 +14,9 @@ RUN pnpm run build
 
 FROM caddy:2.7
 
-USER www-data
+COPY --from=build /app/dist /srv
+COPY Caddyfile /etc/caddy/Caddyfile
 
-COPY --from=build /app/dist /var/www
-
-EXPOSE 8080
-CMD ["busybox", "httpd", "-f", "-v", "-p", "8080"]
+EXPOSE 80 443
+ENV CADDY_DOMAIN=*
+VOLUME /data
