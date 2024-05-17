@@ -5,6 +5,8 @@ use eyre::{eyre, OptionExt};
 use shatterbird_storage::model::Commit;
 use shatterbird_storage::{Id, Storage};
 use std::str::FromStr;
+use either::Either;
+use gix::ObjectId;
 use tracing::{info, instrument, warn};
 
 mod converter;
@@ -14,7 +16,7 @@ mod lsif_ext;
 #[derive(Debug, Clone)]
 pub struct RootMapping {
     pub dir: String,
-    pub node: Id<Commit>,
+    pub node: Either<Id<Commit>, ObjectId>,
 }
 
 #[instrument(skip_all)]
@@ -52,9 +54,11 @@ impl FromStr for RootMapping {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let (dir, node) = s.rsplit_once('=').ok_or_eyre("invalid root mapping")?;
         let dir = dir.to_string();
-        let node = node
-            .parse()
-            .map_err(|e| eyre!("failed to parse node id: {e}"))?;
+        let node = match node.len() {
+            24 => Either::Left(node.parse().map_err(|e| eyre!("failed to parse node id: {e}"))?),
+            40 => Either::Right(node.parse().map_err(|e| eyre!("failed to parse node id: {e}"))?),
+            _ => return Err(eyre!("invalid root id: {node}")),
+        };
         Ok(RootMapping { dir, node })
     }
 }

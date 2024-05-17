@@ -5,6 +5,8 @@ use std::hash::Hash;
 use std::ops::Deref;
 
 use futures::FutureExt;
+use gix::objs::Object;
+use gix::ObjectId;
 use rayon::prelude::*;
 use scc::{Bag, HashMap, HashSet};
 use tracing::{debug, debug_span, info, info_span, instrument, trace, warn, Level};
@@ -35,7 +37,7 @@ struct FileWithPath {
 pub struct Converter<'g, 's> {
     storage: &'s Storage,
     graph: &'g Graph<'g>,
-    roots: Trie<String, Id<Commit>>,
+    roots: Trie<String, Either<Id<Commit>, ObjectId>>,
     files: HashMap<lsif::Id, FileWithPath>,
     lines: HashMap<LineKey, Line>,
     ranges: HashMap<lsif::Id, Range>,
@@ -166,10 +168,11 @@ impl<'g, 's> Converter<'g, 's> {
         );
 
         let mut path = Vec::new();
-        let mut curr = self
-            .storage
-            .get(root)
-            .await?
+        let curr = match root {
+            Either::Left(id) => self.storage.get(id).await?,
+            Either::Right(id) => self.storage.get_by_oid(id).await?,
+        };
+        let mut curr = curr
             .ok_or_eyre(eyre!("commit {} not found in DB", root))?
             .root;
         for segment in suffix.split('/') {
