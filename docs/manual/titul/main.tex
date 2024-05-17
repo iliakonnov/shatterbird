@@ -1,0 +1,41 @@
+\newenvironment{LeftTablePage}{%
+	\thispagestyle{empty}%
+	% Временно уменьшаем отступы.
+	\newgeometry{left=5mm, top=25mm, bottom=10mm}%
+	% Содержимое слева.
+	\noindent\begin{minipage}[b]{20mm}
+		\rotatebox{90}{
+			\begin{tabular}{| c | c | c | c | c |}
+				\hline
+				Инв. № подл. & Подп. и дата & Взам. инв. № & Инв. № дубл. & Подп. и дата \\
+				\hline
+				\docId & & & & \\
+				\hline
+			\end{tabular}%
+		}
+	\end{minipage}%
+	% Основное содержимое
+	\begin{samepage}%
+	\begin{minipage}[b][\textheight]{\textwidth}\centering%
+}{
+	\end{minipage}%
+	\end{samepage}
+	
+	% Теперь можно вернуть отступы как были
+	\restoregeometry
+
+	\clearpage
+}
+
+\includepdf[pages=-]{figures/signed.pdf}
+% \begin{LeftTablePage}
+% 	\input{titul/approval.tex}
+% \end{LeftTablePage}
+
+% ГОСТ гласит, что лист утверждения не должен быть нумероваться: титульный лист это первый лист
+\pagenumbering{arabic}
+
+\begin{LeftTablePage}
+	\input{titul/titul.tex}
+\end{LeftTablePage}
+	

@@ -1,0 +1,39 @@
+\usepackage[nonumberlist,nogroupskip,xindy={glsnumbers=false,codepage=utf8,language=russian}]{glossaries}
+\usepackage[automake=immediate]{glossaries-extra}
+% \setabbreviationstyle[acronym]{short-footnote}
+\setglossarystyle{list}
+\renewcommand{\glossarysection}[2][]{}
+\renewcommand{\glsnamefont}[1]{\textrm{#1}}
+\makeglossaries
+
+\newglossaryentry{IDE}
+{
+    name=IDE,
+    description={(Integrated Development Environment) — интегрированная среда разработки, предоставляющая разработчику большое количество функционала для работы с кодом проектов}
+}
+
+\newglossaryentry{LSP}
+{
+    name=LSP,
+    description={(Language Server Protocol) \cite{lsp-book} — разработанный Microsoft протокол взаимодействия редактора кода и специального сервиса, который способен анализировать код проекта и предоставлять редактору продвинутый функционал, сравнимый с классическими IDE}
+}
+
+\newglossaryentry{LSIF}
+{
+    name=LSIF,
+    description={(Language Server Index Format) \cite{lsif} — специальный формат, в котором LSP-сервер может вывести информацию о проекте таким образом, что её можно переиспользовать в дальнейшем, не имея при этом запущенного экземпляра сервера и даже кода проекта}
+}
+
+\newglossaryentry{symbol}
+{
+    name={Символ},
+    text={символ},
+    description={(в контексте исходного кода) — идентифкатор в тексте программе, однажды где-либо определенный. Например, в строке «\texttt{def func():}» символом будет являться «\texttt{func}». Также символами являются имена переменных, классов и многое другое}
+}
+
+\newglossaryentry{repo}
+{
+    name={Репозиторий},
+    text={репозиторий},
+    description={— файлы какого-либо программного проекта, включающие, среди прочего, весь его исходный код. В данной работе под репозиторием имеется ввиду Git-репозиторий, в котором все файлы также находятся под управлением системы контроля версий Git, которая позволяет эффективно создавать новые версии репозитория и делиться внесенными изменениями с другими разработчиками}
+}

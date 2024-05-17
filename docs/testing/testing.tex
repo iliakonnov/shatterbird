@@ -1,0 +1,29 @@
+\documentclass[12pt,a4paper]{article}
+\input{preamble.tex}
+
+\begin{document}
+	\selectlanguage{russian}
+
+	\input{titul/main.tex}
+	
+	% На всякий случай, хотя вообще не очень нужно.
+	\loadgeometry{original}
+
+	\clearpage
+		\renewcommand*\contentsname{\centering СОДЕРЖАНИЕ}
+		\tableofcontents
+	\clearpage
+
+	% Основное содержимое
+	\input{content/01_object.tex}  % Объект испытаний
+	\input{content/02_goals.tex}   % Цель испытаний
+	\input{content/03_requirements.tex}  % Требования к программе
+	\input{content/04_docs.tex}    % Требования к программной документации
+	\input{content/05_conditions.tex}   % Средства и порядок испытаний
+	\input{content/06_methods.tex} % Методы испытаний
+
+    % Дальше снова не приложения
+    \setcounter{addendum}{0}
+
+	\input{changes.tex}       % Лист регистрации изменений
+\end{document}

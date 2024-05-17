@@ -1,0 +1,27 @@
+\newbool{russian}
+\booltrue{russian}  % Загружает русскоязычный логотип ВШЭ
+\usepackage{HSE-theme/beamerthemeHSE}
+
+\usepackage[english,russian]{babel}
+\usepackage{unicode-math}
+
+\usepackage{biblatex}
+\addbibresource{bibliography.bib}
+
+\setmainfont{HSE Sans}
+\setsansfont{HSE Sans}
+\setmathrm[Numbers={Lining,Proportional}]{HSE Sans}
+\usepackage[scaled=0.8]{FiraMono}
+
+\graphicspath{{images/}}  	% Папка с картинками
+
+\usepackage{tikz}
+\usepackage{listings}
+\usepackage{tcolorbox}
+
+\lstset{
+  language=[LaTeX]TeX,
+  basicstyle=\ttfamily,
+  columns=fullflexible,
+  keepspaces=true
+}

@@ -1,0 +1,354 @@
+\addendum{Модели объектов}
+\label{addendum:models}
+
+Это приложение содержит описание моделей, используемых в проекте. Все модели описаны с помощью языка Typescript. Тип \texttt{Id<T>} обозначает идентифкатор объекта типа \texttt{T}.
+
+\section{Модели для содержимого Git-репозитория}
+
+Эти модели используются для хранения файлов и директорий Git-репозитория в базе данных:
+
+\begin{itemize}
+    \item Коллекция \texttt{commits}:
+        \begin{minted}[gobble=8]{TypeScript}
+        /**
+         * Объект коммита, импортированного из Git-репозитория
+         */
+        export type Commit = { 
+            /**
+             * Идентификатор объекта в базе данных
+             */
+            _id: Id<Commit>, 
+            
+            /**
+             * Хранит хэш, который используется для идентификации соответствующего объекта в Git
+             */
+            oid: string, 
+            
+            /**
+             * Идентификатор корневой директории репозитория
+             */
+            root: Id<Node>, 
+            
+            /**
+             * Список коммитов-родителей, если они также загружены в хранилище
+             */
+            parents: Array<Id<Commit>>,
+        }
+        \end{minted}
+
+    \item Коллекция \texttt{nodes}:
+        \begin{minted}[gobble=8]{TypeScript}
+        /**
+         * Объект в файловом дереве
+         */
+        export type Node = {
+            /**
+             * Идентификатор объекта в базе данных
+             */
+            _id: Id<Node>,
+            
+            /**
+             * Хранит хэш, который используется для идентификации соответствующего объекта в Git
+             */
+            oid: string,
+            
+            /**
+             * Содержимое объекта, в зависимости от его типа
+             */
+            content: {
+                "Symlink": {
+                    /**
+                     * Путь, на который ссылается эта ссылка
+                     */
+                    target: string,
+                }
+            } | {
+                "Directory": {
+                    /**
+                     * Объекты. входящие в эту директорию и их имена
+                     */
+                    children: { [key: string]: Id<Node> },
+                }
+            } | {
+                "Text": {
+                    /**
+                     * Суммарный размер файла
+                     */
+                    size: bigint,
+                    
+                    /**
+                     * Список строк, входящих в этот файл
+                     */
+                    lines: Array<Id<Line>>,
+                }
+            } | {
+                "Blob": {
+                    /**
+                     * Суммарный размер файла
+                     */
+                    size: bigint,
+                    
+                    /**
+                     * Идентификатор объекта, содержащего этот файл
+                     */
+                    content: Id<BlobFile>,
+                }
+            },
+        };
+        \end{minted}
+        
+    \item Коллекция \texttt{blobs}:
+        \begin{minted}[gobble=8]{TypeScript}
+        /**
+         * Содержимое файла, который не удалось разделить на отдельные строки
+         */
+        export type BlobFile = {
+            /**
+             * Идентификатор объекта в базе данных
+             */
+            _id: Id<BlobFile>,
+            
+            /**
+             * Содержимое файла (байты)
+             */
+            data: Array<number>,
+        };
+        \end{minted}
+    
+    \item Коллекция \texttt{lines}:
+        \begin{minted}[gobble=8]{TypeScript}
+        /**
+         * Содержимое отдельной строки текстового файла
+         */
+        export type Line = {
+            /**
+             * Идентификатор объекта в базе данных
+             */
+            _id: Id<Line>,
+            
+            /**
+             * Строка
+             */
+            text: string,
+        };
+        \end{minted}
+\end{itemize}
+
+\section{Модели для результатов индексирования}
+
+Эти модели используются для хранения результатов работы LSIF в базе данных:
+
+\begin{itemize}
+    \item Коллекция «lines»:
+        \begin{minted}[gobble=8]{TypeScript}
+        /**
+         * Описание подстроки в файле
+         */
+        export type Range = {
+            /**
+             * Идентификатор объекта в базе данных
+             */
+            _id: Id<Range>,
+            
+            /**
+             * Идентификатор строки, в которой находится подстрока
+             */
+            line_id: Id<Line>,
+            
+            /**
+             * Полный путь к этому файлу
+             */
+            path: Array<Id<Line>>,
+            
+            /**
+             * Индекс первого символа подстроки
+             */
+            start: number,
+            
+            /**
+             * Индекс конца подстроки
+             */
+            end: number,
+        };
+        \end{minted}
+    
+    \item Коллекция «edges»:
+        \begin{minted}[gobble=8]{TypeScript}
+        /**
+         * Ребро графа, связывающее те или иные вершины
+         */
+        export type Edge = {
+            /**
+             * Идентификатор объекта в базе данных
+             */
+            _id: Id<Edge>,
+            
+            /**
+             * Информация об ребре, предоставленная LSIF
+             */
+            data: {
+                /**
+                 * Вид ребра
+                 */
+                edge: "Contains"
+                    | "Moniker"
+                    | "NextMoniker"
+                    | "Next"
+                    | "PackageInformation"
+                    | "Item"
+                    | "Definition"
+                    | "Declaration"
+                    | "Hover"
+                    | "References"
+                    | "Implementation"
+                    | "TypeDefinition"
+                    | "FoldingRange"
+                    | "DocumentLink"
+                    | "DocumentSymbol"
+                    | "Diagnostic",
+                    
+                /**
+                 * Входящая вершина, если один
+                 */
+                in_v?: Id<Vertex>,
+                
+                /**
+                 * Входящие вершины, если несколько
+                 */
+                in_vs?: Array<Id<Vertex>>,
+                
+                /**
+                 * Исходящая вершина
+                 */
+                out_v: Id<Vertex>,
+            },
+        };
+        \end{minted}
+        
+    \item Коллекция «vertices»:
+        \begin{minted}[gobble=8]{TypeScript}
+        /**
+         * Вершина графа
+         */
+        export type Vertex = {
+            /**
+             * Идентификатор объекта в базе данных
+             */
+            _id: Id<Vertex>,
+            
+            /**
+             * Информация об вершине, предоставленная LSIF
+             */
+            data: {
+                /**
+                 * Вид вершины
+                 */
+                vertex: "MetaData"
+                      | "Project"
+                      | "Document"
+                      | "Range"
+                      | "ResultSet"
+                      | "Moniker"
+                      | "PackageInformation"
+                      | "DefinitionResult"
+                      | "DeclarationResult"
+                      | "TypeDefinitionResult"
+                      | "ReferenceResult"
+                      | "ImplementationResult"
+                      | "FoldingRangeResult"
+                      | "HoverResult"
+                      | "DocumentSymbolResult"
+                      | "DocumentLinkResult"
+                      | "DiagnosticResult",
+                
+                // Также содержит дополнительные поля, зависящие от конкретного вида вершины.
+            },
+        };
+        \end{minted}
+\end{itemize}
+
+\section{Объект FullNode}
+\label{models:fullnode}
+
+Этот объект не хранится в базе данных, но используется при взаимодействии с клиентской частью.
+
+\begin{minted}{TypeScript}
+/**
+ * Хранит полную информацию об узле файлового дерева
+ */
+export type FullNode = {
+    /**
+     * Идентифкатор этого узла в базе данных
+     */
+    _id: Id<Node>,
+
+    /**
+     * Тип узла
+     */
+    kind: "Symlink" | "Directory" | "Text" | "Blob",
+
+    content: {
+        "Symlink": {
+            /**
+             * Ссылка на целевой файл
+             */
+            target: string,
+        }
+    } | {
+        "Directory": {
+            /**
+             * Дочерние узлы этой директории вместе с их именами
+             */
+            children: {
+                [key: string]: {
+                    /**
+                     * Идентифкатор этого узла в базе данных
+                     */
+                    _id: Id<Node>,
+                    
+                    /**
+                     * Тип узла
+                     */
+                    kind: "Symlink" | "Directory" | "Text" | "Blob",
+                }
+            },
+        }
+    } | {
+        "Text": {
+            /**
+             * Размер файла в байтах
+             */
+            size: bigint,
+            /**
+             * Строки файла
+             */
+            lines: Array<{
+                /**
+                 * Идентификатор объекта в базе данных
+                 */
+                _id: Id<Line>,
+                
+                /**
+                 * Текст строки
+                 */
+                text: string,
+            }>,
+        }
+    } | {
+        "Blob": {
+            /**
+             * Размер файла в байтах
+             */
+            size: bigint,
+            
+            /**
+             * Идентификатор этого файла в базе данных
+             */
+            content: Id<BlobFile>,
+        }
+    },
+};
+\end{minted}
+
+
+\clearpage

@@ -1,0 +1,26 @@
+\documentclass[12pt,a4paper]{article}
+\input{preamble.tex}
+
+\begin{document}
+	\selectlanguage{russian}
+
+	\input{titul/main.tex}
+	
+	% На всякий случай, хотя вообще не очень нужно.
+	\loadgeometry{original}
+
+	\clearpage
+		\renewcommand*\contentsname{\centering СОДЕРЖАНИЕ}
+		\tableofcontents
+	\clearpage
+
+	% Основное содержимое
+	\input{content/01_purpose.tex}     % Назначение программы
+	\input{content/02_conditions.tex}  % Условия выполнения программы
+	\input{content/03_usage.tex}       % Выполнение программы
+
+    % Дальше снова не приложения
+    \setcounter{addendum}{0}
+
+	\input{changes.tex}       % Лист регистрации изменений
+\end{document}

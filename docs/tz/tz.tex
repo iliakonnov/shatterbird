@@ -1,0 +1,37 @@
+\documentclass[12pt,a4paper]{article}
+\input{preamble.tex}
+
+\begin{document}
+	\selectlanguage{russian}
+
+	\input{titul/main.tex}
+	
+	% На всякий случай, хотя вообще не очень нужно.
+	\loadgeometry{original}
+	
+	\input{content/00_annotation.tex}
+
+	\clearpage
+		\renewcommand*\contentsname{\centering СОДЕРЖАНИЕ}
+		\tableofcontents
+	\clearpage
+
+	% Основное содержимое
+	\input{content/01_introduction.tex} % Введение
+	\input{content/02_reasons.tex}      % Основания для разработки
+	\input{content/03_goals.tex}        % Назначение разработки
+	\input{content/04_requirements.tex} % Требования
+	\input{content/05_docs.tex}         % Требования к программной документации
+	\input{content/06_economy.tex}      % Технико-экономические показатели
+	\input{content/07_stages.tex}       % Стадии и этапы раработки
+	\input{content/08_checklist.tex}    % Порядок контроля и приёмки
+	\input{content/09_bibliography.tex} % Ручками редактировать не надо, лучше юзать bibtex (см. bibliography.bib)
+
+    % Ниже следуют приложения
+    %\input{content/10_glossary.tex}     % Глоссарий
+
+    % Дальше снова не приложения
+    \setcounter{addendum}{0}
+
+	\input{changes.tex}       % Лист регистрации изменений
+\end{document}

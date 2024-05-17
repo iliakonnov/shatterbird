@@ -1,0 +1,19 @@
+\newenvironment{LeftTablePage}{%
+    \thispagestyle{empty}%
+    \loadgeometry{nofooter}%
+    \singlespacing%
+	% Основное содержимое
+	\noindent%
+	\begin{samepage}%
+	\begin{minipage}[b][\textheight]{\textwidth}\centering%
+}{%
+	\end{minipage}%
+	\end{samepage}%
+    \loadgeometry{original}%
+	\clearpage%
+}
+
+\includepdf[pages=-]{figures/signed.pdf}
+% \begin{LeftTablePage}
+% 	\input{titul/titul.tex}
+% \end{LeftTablePage}

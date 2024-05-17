@@ -1,0 +1,183 @@
+% Языки, которые могут быть использованы.
+\usepackage[russian,english]{babel}
+
+% FreeSerif — альтернатива TimesNewRoman
+\usepackage{fontspec}
+\setmainfont[Ligatures=TeX]{Times New Roman}
+\setmonofont[Mapping=,Ligatures=]{Courier New}
+
+% Чтобы сделать буковки ещё красивее.
+\usepackage{microtype}
+
+% Картинки, вращение и всё такое. Причём даже в режиме черновика
+\usepackage[final]{graphicx}
+\usepackage{float}
+\usepackage[draft=no]{svg}
+\usepackage{pdfpages}
+
+% Чтобы легко менять стиль списков
+\usepackage[shortlabels]{enumitem}
+
+\usepackage{unicode-math}
+\usepackage{listings}
+\usepackage{csquotes}
+\usepackage{adjustbox}
+\usepackage{relsize}
+
+% https://qna.habr.com/answer?answer_id=1140867
+\bibliographystyle{gost2008}
+\usepackage[
+	style=gost-numeric, % стиль цитирования и библиографии, см. документацию biblatex-gost
+	language=auto,  % использовать язык из babel
+	autolang=other, % многоязычная библиография
+	parentracker=true,
+	backend=biber,
+	hyperref=true,
+	bibencoding=utf8,
+	sorting=ntvy,  % сортировка: имя, заголовок, том, год
+]{biblatex}
+\addbibresource{bibliography.bib}
+\DeclareSourcemap{
+    \maps{
+        \map{% если @online, то устанавливаем media=eresource.
+            \step[typesource=online, fieldset=media, fieldvalue=eresource]
+        }
+    }
+}
+
+% Отсупы как по госту.
+\usepackage[
+	includeheadfoot,
+	left=20mm,
+	right=10mm,
+	top=0mm,
+	headheight=25mm,
+	footskip=5\baselineskip, % footskip is the distance between the textbody and the baseline of the footer
+	bottom=15mm,
+]{geometry}
+
+\savegeometry{original}
+\geometry{bottom=10mm}
+\savegeometry{nofooter}
+\loadgeometry{original}
+
+\input{settings.tex}
+
+% Footer and header
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+\fancyhf{}
+\chead{
+	%\bf % Сделать жирненьким
+	\thepage\\
+	\docId
+}
+\fancyhead[RO]{%
+    % В правый верхний колотитул пихаю номер приложения
+    {\ifnum\value{addendum}>0 ПРИЛОЖЕНИЕ \theaddendum \fi}
+}
+\cfoot{%
+	\adjustbox{valign=b}{ % baseline of footer at bottom, so margins are correct
+		\begin{tabular}{| l | l | l | l | l |}
+			\hline & & & & \\
+			\hline Изм. & Лист & № докум. & Подп. & Дата \\
+			\hline \docId &  &  &  &  \\
+			\hline Инв. № подл. & Подп. и дата & Взам. инв. № & Инв. № дубл. & Подп. и дата № \\
+			\hline
+		\end{tabular}
+	}
+}
+\fancypagestyle{nofooter}{%
+	\fancyfoot{}%
+}
+
+\renewcommand{\headrulewidth}{0pt}
+\renewcommand{\footrulewidth}{0pt}
+
+% Повернуть на 90 градусов
+\newcommand{\rot}[2]{\rotatebox[origin=c]{90}{\enspace\parbox{#1 - 0.5em}{#2}}}
+
+% Повторить #1 раз текст #2: \Repeat{#1}{#2}
+\usepackage{expl3}
+\ExplSyntaxOn
+\cs_new_eq:NN \Repeat \prg_replicate:nn
+\ExplSyntaxOff
+
+% Продвинутые таблицы
+\usepackage{tabularx}
+\usepackage{multirow}
+\usepackage{xltabular}
+% И сразу делаем чтобы колонки X центрировались по вертикали
+\def\tabularxcolumn#1{m{#1}}
+\newcolumntype{Y}{>{\centering\arraybackslash}X}
+
+% Подсчет числа страниц
+\usepackage{lastpage}
+
+% Расчет всяких размеров
+\usepackage{calc}
+
+% Названия разделов по центру (но titlesec конфликтует с hyperref)
+\usepackage{titlesec}
+\titleformat{\section}
+  {\centering\Large\bfseries}
+  {\thesection}
+  {.5em}
+  {\MakeUppercase}
+% И с точкой в конце.
+\titlelabel{\thetitle.\quad}
+
+% После названия раздела надо делать отступы у абзацев.
+\usepackage{indentfirst}
+
+% https://tex.stackexchange.com/a/347803
+\usepackage{varwidth}
+
+\newcommand{\placename}{
+	\underline{\hspace{4cm}}
+}
+\newcommand{\placedate}{
+	«\underline{\hspace{1em}}» \underline{\hspace{3cm}} \YEAR г.
+}
+
+\newcounter{addendum}
+\makeatletter
+\newcommand{\addendum}[1]{
+    \stepcounter{addendum}
+
+	% Приложения есть в оглавлении
+	\phantomsection
+	\addcontentsline{toc}{section}{Приложение \arabic{addendum}: #1}
+
+	\section*{#1}
+	
+	% Сбросить все счетчики
+	\setcounter{equation}{0}
+    \setcounter{figure}{0}
+    \setcounter{table}{0}
+
+	% Треш и угар с макросами, чтобы обойти проблемы между titlsec и hyperref
+	% Цель: \NR@gettitle{Приложение 1: …}, но нужно **сначала** раскрыть \arabic{addendum}
+	\edef\addendumTitle{\noexpand\NR@gettitle{Приложение \arabic{addendum}: #1}}
+	\addendumTitle
+}
+\makeatother
+
+% Ещё больше подсекций
+\newcommand{\subsubsubsection}[1]{\paragraph{#1}\mbox{}\\}
+\setcounter{secnumdepth}{4}
+\setcounter{tocdepth}{4}
+
+% TODOшечки
+\usepackage{ifdraft}
+\ifdraft{
+	% Если \document[draft], то нам нужно место в полях для todo.
+	\geometry{left=40mm, right=5mm, marginparwidth=35mm}
+	\reversemarginpar  % причём слева они выглядят симпатичнее
+	\savegeometry{original}
+}{}
+\usepackage[obeyDraft,textsize=footnotesize,textwidth=35mm]{todonotes}
+
+% Добавляем гипертекстовое оглавление в PDF
+% hyperref должен быть последним
+\usepackage[hidelinks]{hyperref}

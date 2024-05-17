@@ -1,0 +1,24 @@
+\documentclass[12pt,a4paper]{article}
+\input{preamble.tex}
+
+\begin{document}
+	\selectlanguage{russian}
+
+	\input{titul/main.tex}
+	
+	% На всякий случай, хотя вообще не очень нужно.
+	\loadgeometry{original}
+
+	\clearpage
+		\renewcommand*\contentsname{\centering СОДЕРЖАНИЕ}
+		\tableofcontents
+	\clearpage
+
+	% Основное содержимое
+	\section{Текст программы}
+	Текст программы находится в публичном репозитории на GitHub.
+	
+	Ссылка на репозиторий: \url{https://github.com/iliakonnov/shatterbird}
+
+	\input{changes.tex}       % Лист регистрации изменений
+\end{document}

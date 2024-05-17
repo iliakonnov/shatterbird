@@ -1,0 +1,117 @@
+\addendum{Содержимое репозитория}
+\label{addendum:repo}
+
+\begin{verbatim}
+.
+├── README.md
+├── backend
+│   ├── Cargo.lock
+│   ├── Cargo.toml
+│   ├── Dockerfile
+│   ├── mongo-model
+│   │   ├── Cargo.toml
+│   │   ├── mongo-model-derive
+│   │   │   ├── Cargo.toml
+│   │   │   └── src
+│   │   │       ├── lib.rs
+│   │   │       └── model.rs
+│   │   └── src
+│   │       ├── id.rs
+│   │       └── lib.rs
+│   ├── shatterbird-cli
+│   │   ├── Cargo.toml
+│   │   └── src
+│   │       ├── graph.rs
+│   │       └── main.rs
+│   ├── shatterbird-indexer
+│   │   ├── Cargo.toml
+│   │   └── src
+│   │       ├── exclusive.rs
+│   │       ├── git
+│   │       │   └── mod.rs
+│   │       ├── lsif
+│   │       │   ├── converter.rs
+│   │       │   ├── graph.rs
+│   │       │   ├── lsif_ext.rs
+│   │       │   └── mod.rs
+│   │       └── main.rs
+│   ├── shatterbird-server
+│   │   ├── Cargo.toml
+│   │   └── src
+│   │       ├── filesystem
+│   │       │   ├── mod.rs
+│   │       │   └── model.rs
+│   │       ├── language_server
+│   │       │   ├── error.rs
+│   │       │   ├── methods.rs
+│   │       │   └── mod.rs
+│   │       ├── main.rs
+│   │       ├── settings.rs
+│   │       ├── state.rs
+│   │       └── utils.rs
+│   ├── shatterbird-storage
+│   │   ├── Cargo.toml
+│   │   └── src
+│   │       ├── lib.rs
+│   │       ├── model
+│   │       │   ├── files.rs
+│   │       │   ├── lang.rs
+│   │       │   └── mod.rs
+│   │       ├── serializers
+│   │       │   ├── gix_hash.rs
+│   │       │   └── mod.rs
+│   │       ├── ts.rs
+│   │       └── util
+│   │           ├── graph.rs
+│   │           └── mod.rs
+│   └── shatterbird-utils
+│       ├── Cargo.toml
+│       └── src
+│           ├── cli.rs
+│           └── lib.rs
+├── docker-compose.yml
+└── frontend
+    ├── Caddyfile
+    ├── Dockerfile
+    ├── README.md
+    ├── dev.js
+    ├── package.json
+    ├── pnpm-lock.yaml
+    ├── public
+    │   ├── index.html
+    │   ├── product.json
+    │   └── shatterbird
+    │       └── package.nls.json
+    ├── src
+    │   ├── extension.ts
+    │   ├── filesystem
+    │   │   ├── fsClient.ts
+    │   │   ├── fsProvider.ts
+    │   │   ├── fsProviderBase.ts
+    │   │   ├── fsRoot.ts
+    │   │   ├── node.ts
+    │   │   ├── repoRoot.ts
+    │   │   └── types.ts
+    │   ├── language
+    │   │   └── languageClient.ts
+    │   ├── manifest.json
+    │   └── server-types
+    │       ├── BlobFile.ts
+    │       ├── Commit.ts
+    │       ├── ContentKind.ts
+    │       ├── Edge.ts
+    │       ├── EitherNode.ts
+    │       ├── ExpandedFileContent.ts
+    │       ├── FileContent.ts
+    │       ├── FullNode.ts
+    │       ├── Id.ts
+    │       ├── Line.ts
+    │       ├── Node.ts
+    │       ├── NodeInfo.ts
+    │       ├── Range.ts
+    │       └── Vertex.ts
+    ├── tsconfig.json
+    └── vite.config.ts
+
+30 directories, 80 files
+\end{verbatim}

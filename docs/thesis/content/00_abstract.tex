@@ -1,0 +1,24 @@
+\addsec{Реферат}
+
+Данная работа посвящена реализации сервиса для индексирования Git-репозиториев, предоставляющего функционал навигации по исходным кодам репозитория с возможностью найти определение тех или иных символов, или всех их использований. Подобная система позволяет оптимизировать работу разработчиков и помочь им при изучении кода программных проектов.
+
+Сначала приводится сравнение с существующими аналогичными решениями, формулируются проблемы и список требований к реализуемой системе. Затем в тексте предлагаются решения поставленных проблем и приводятся конкретные методы для получения и хранения исходных текстов из Git-репозиториев, для получения семантических данных и для эффективного формирования ответа на запросы с использованием технологии LSIF, а также предлагается способ версионирования данных для хранения различных версий репозитория в одной базе данных. В том числе описывается механизм для быстрого получения семантических данных в ущерб их точности, используя информацию из раннее проиндексированных версий репозитория. Наконец, в этом документе приводятся детали реализации системы: общая архитектура, используемые технологии, описание модели данных и описания отдельных сервисов, а также протоколы их взаимодействия друг с другом.
+
+Работа содержит \pageref*{LastPage} страниц, \total{chaps} главы, \totalfigures{} рисунков, \total{citenum} источников, \total{addendum} приложений.
+
+\textit{Ключевые слова: репозиторий, индексация, Git, language server, контроль версий}
+
+\clearpage
+
+\addsec{Abstract}
+
+This work is devoted to the implementation of a service for indexing Git repositories, which provides functionality for navigating through the source codes of the repository with the ability to find the definition of certain symbols or all their uses.
+
+First, a comparison with existing similar solutions is given, problems are formulated and a list of requirements for the system being implemented. Then the text suggests solutions to the problems posed and provides specific methods for obtaining and storing source texts from Git repositories, for obtaining semantic data and for effectively forming a response to queries using LSIF technology, as well as a method for versioning data to store different versions of the repository in one database. In particular, it describes a mechanism for quickly obtaining semantic data at the expense of their accuracy, using information from earlier indexed versions of the repository. Finally, this document provides details of the system implementation: the overall architecture, the technologies used, a description of the data model and descriptions of individual services, as well as protocols for their interaction with each other.
+
+This work contains \pageref*{LastPage} pages, \total{chaps} chapters, \totalfigures{} figures, \total{citenum} references, \total{addendum} appendicies.
+
+\textit{Keywords: repository, indexing, Git, language server, graph, version control}
+
+
+\clearpage

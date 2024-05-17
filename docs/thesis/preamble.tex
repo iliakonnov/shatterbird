@@ -1,0 +1,331 @@
+% Языки, которые могут быть использованы.
+\usepackage[russian,english]{babel}
+
+\usepackage{fontspec}
+\setmainfont[Ligatures=TeX]{Times New Roman}
+\setmonofont[Mapping=,Ligatures=]{Courier New}
+\addtokomafont{disposition}{\rmfamily}
+
+% Чтобы сделать буковки ещё красивее.
+\usepackage{microtype}
+
+% Картинки, вращение и всё такое. Причём даже в режиме черновика
+\usepackage[final]{graphicx}
+\usepackage{float}
+\usepackage[draft=no]{svg}
+\usepackage{pdfpages}
+
+\usepackage{tikz}
+\usetikzlibrary{fit,arrows.meta,decorations.pathmorphing,backgrounds}
+
+% Чтобы легко менять стиль списков
+\usepackage[shortlabels]{enumitem}
+
+\setmainfont{Times New Roman} % Шрифт для основного текста
+\setmonofont{Courier New}     % Шрифт для моноширинного текста
+\usepackage[
+    left=30mm,       % левое поле: 3см
+    right=15mm,      % правое поле: 1.5см
+    top=20mm,        % верхнее поле: 2см
+    bottom=20mm,     % нижнее поле: 2см
+    includeheadfoot,
+    footskip=12.5mm,
+    headheight=15mm,
+]{geometry}
+\usepackage[
+    indent=12.5mm  % абзацный отступ: 1.25см
+    skip=10pt plus1pt,
+]{parskip}
+\onehalfspacing\selectfont  % полуторный интервал
+
+\usepackage{unicode-math}
+\usepackage[final]{listings}
+\usepackage[autostyle]{csquotes}
+\usepackage{adjustbox}
+\usepackage{relsize}
+\usepackage{upquote}
+
+\MakeAutoQuote{«}{»}
+
+\usepackage{minted}
+\definecolor{backcolour}{rgb}{0.95,0.95,0.92}
+\setminted{
+    linenos,
+    mathescape,
+    breaklines,
+    fontsize=\small,
+    bgcolor=backcolour,
+    xleftmargin=0pt,
+    numbersep=8pt,
+}
+
+% https://qna.habr.com/answer?answer_id=1140867
+\bibliographystyle{gost2008}
+\usepackage[
+	style=gost-numeric, % стиль цитирования и библиографии, см. документацию biblatex-gost
+	language=autobib,
+	autolang=other, % многоязычная библиография
+	parentracker=true,
+	backend=biber,
+	hyperref=true,
+	bibencoding=utf8,
+	defernumbers=true,
+]{biblatex}
+\addbibresource{bibliography.bib}
+\DeclareSourcemap{ %модификация bib файла перед тем, как им займётся biblatex
+    \maps{
+        \map{% перекидываем значения полей language в поля langid, которыми пользуется biblatex
+            \step[fieldsource=language, fieldset=langid, origfieldval, final]
+            \step[fieldset=language, null]
+        }
+        \map{% перекидываем значения полей numpages в поля pagetotal, которыми пользуется biblatex
+            \step[fieldsource=numpages, fieldset=pagetotal, origfieldval, final]
+            \step[fieldset=numpages, null]
+        }
+        \map{% перекидываем значения полей pagestotal в поля pagetotal, которыми пользуется biblatex
+            \step[fieldsource=pagestotal, fieldset=pagetotal, origfieldval, final]
+            \step[fieldset=pagestotal, null]
+        }
+        \map[overwrite]{% перекидываем значения полей shortjournal, если они есть, в поля journal, которыми пользуется biblatex
+            \step[fieldsource=shortjournal, final]
+            \step[fieldset=journal, origfieldval]
+            \step[fieldset=shortjournal, null]
+        }
+        \map[overwrite]{% перекидываем значения полей shortbooktitle, если они есть, в поля booktitle, которыми пользуется biblatex
+            \step[fieldsource=shortbooktitle, final]
+            \step[fieldset=booktitle, origfieldval]
+            \step[fieldset=shortbooktitle, null]
+        }
+        \map{% если в поле medium написано "Электронный ресурс", то устанавливаем поле media, которым пользуется biblatex, в значение eresource.
+            \step[fieldsource=medium,
+            match=\regexp{Электронный\s+ресурс},
+            final]
+            \step[fieldset=media, fieldvalue=eresource]
+            \step[fieldset=medium, null]
+        }
+        \map[overwrite]{% стираем значения всех полей issn
+            \step[fieldset=issn, null]
+        }
+        \map[overwrite]{% стираем значения всех полей abstract, поскольку ими не пользуемся, а там бывают "неприятные" латеху символы
+            \step[fieldsource=abstract]
+            \step[fieldset=abstract,null]
+        }
+        \map[overwrite]{ % переделка формата записи даты
+            \step[fieldsource=urldate,
+            match=\regexp{([0-9]{2})\.([0-9]{2})\.([0-9]{4})},
+            replace={$3-$2-$1$4}, % $4 вставлен исключительно ради нормальной работы программ подсветки синтаксиса, которые некорректно обрабатывают $ в таких конструкциях
+            final]
+        }
+        \map[overwrite]{ % стираем ключевые слова
+            \step[fieldsource=keywords]
+            \step[fieldset=keywords,null]
+        }
+        \map[overwrite]{ % записываем информацию о типе публикации в ключевые слова
+            \step[fieldsource=authorvak,final=true]
+            \step[fieldset=keywords,fieldvalue={,biblioauthorvak},append=true]
+        }
+        \map[overwrite]{ % записываем информацию о типе публикации в ключевые слова
+            \step[fieldsource=authorscopus,final=true]
+            \step[fieldset=keywords,fieldvalue={,biblioauthorscopus},append=true]
+        }
+        \map[overwrite]{ % записываем информацию о типе публикации в ключевые слова
+            \step[fieldsource=authorwos,final=true]
+            \step[fieldset=keywords,fieldvalue={,biblioauthorwos},append=true]
+        }
+        \map[overwrite]{ % записываем информацию о типе публикации в ключевые слова
+            \step[fieldsource=authorconf,final=true]
+            \step[fieldset=keywords,fieldvalue={,biblioauthorconf},append=true]
+        }
+        \map[overwrite]{ % записываем информацию о типе публикации в ключевые слова
+            \step[fieldsource=authorother,final=true]
+            \step[fieldset=keywords,fieldvalue={,biblioauthorother},append=true]
+        }
+        \map[overwrite]{ % записываем информацию о типе публикации в ключевые слова
+            \step[fieldsource=authorpatent,final=true]
+            \step[fieldset=keywords,fieldvalue={,biblioauthorpatent},append=true]
+        }
+        \map[overwrite]{ % записываем информацию о типе публикации в ключевые слова
+            \step[fieldsource=authorprogram,final=true]
+            \step[fieldset=keywords,fieldvalue={,biblioauthorprogram},append=true]
+        }
+        \map[overwrite]{ % добавляем ключевые слова, чтобы различать источники
+            \perdatasource{biblio/external.bib}
+            \step[fieldset=keywords, fieldvalue={,biblioexternal},append=true]
+        }
+        \map[overwrite]{ % добавляем ключевые слова, чтобы различать источники
+            \perdatasource{biblio/author.bib}
+            \step[fieldset=keywords, fieldvalue={,biblioauthor},append=true]
+        }
+        \map[overwrite]{ % добавляем ключевые слова, чтобы различать источники
+            \perdatasource{biblio/registered.bib}
+            \step[fieldset=keywords, fieldvalue={,biblioregistered},append=true]
+        }
+        \map[overwrite]{ % добавляем ключевые слова, чтобы различать источники
+            \step[fieldset=keywords, fieldvalue={,bibliofull},append=true]
+        }
+%        \map[overwrite]{% стираем значения всех полей series
+%            \step[fieldset=series, null]
+%        }
+        \map[overwrite]{% перекидываем значения полей howpublished в поля organization для типа online
+            \step[typesource=online, typetarget=online, final]
+            \step[fieldsource=howpublished, fieldset=organization, origfieldval]
+            \step[fieldset=howpublished, null]
+        }
+    }
+}
+
+\newcommand*{\fullref}[1]{\hyperref[{#1}]{\ref*{#1} (\nameref*{#1})}}
+
+\usepackage[
+    % showframe,
+    includeheadfoot,
+	left=30mm,
+	right=15mm,
+	top=20mm,
+	bottom=20mm,
+	footskip=12.5mm,
+	headheight=15mm,
+]{geometry}
+\savegeometry{original}
+
+\usepackage{setspace}
+\usepackage[skip=10pt plus1pt, indent=12.5mm]{parskip}
+\setlist[itemize]{leftmargin=12.5mm}
+\setlist[enumerate]{leftmargin=12.5mm}
+\onehalfspacing\selectfont
+
+\geometry{ignoreheadfoot}
+\savegeometry{nofooter}
+
+\loadgeometry{original}
+
+\input{settings.tex}
+
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+\fancyhf{}
+\chead{}
+\fancyhead[RO]{%
+    % В правый верхний колотитул пихаю номер приложения
+    {\ifnum\value{addendum}>0 ПРИЛОЖЕНИЕ \Asbuk{addendum} \fi}
+}
+\cfoot{\thepage}
+
+\renewcommand{\headrulewidth}{0pt}
+\renewcommand{\footrulewidth}{0pt}
+
+% Повернуть на 90 градусов
+\newcommand{\rot}[2]{\rotatebox[origin=c]{90}{\enspace\parbox{#1 - 0.5em}{#2}}}
+
+% Повторить #1 раз текст #2: \Repeat{#1}{#2}
+\usepackage{expl3}
+\ExplSyntaxOn
+\cs_new_eq:NN \Repeat \prg_replicate:nn
+\ExplSyntaxOff
+
+% Продвинутые таблицы
+\usepackage{tabularx}
+\usepackage{multirow}
+\usepackage{xltabular}
+% И сразу делаем чтобы колонки X центрировались по вертикали
+\def\tabularxcolumn#1{m{#1}}
+\newcolumntype{Y}{>{\centering\arraybackslash}X}
+
+% Расчет всяких размеров
+\usepackage{calc}
+
+% Названия глав:
+\RedeclareSectionCommand[
+  beforeskip=0pt,
+  font=\Large,
+  afterskip=12pt]{chapter}
+\RedeclareSectionCommand[
+  beforeskip=8pt,
+  font=\large,
+  afterskip=4pt]{section}
+
+\let\oldaddsec\addsec
+\renewcommand{\addsec}[1]{\oldaddsec[#1]{\hfill{#1}\hfill\mbox{}}}
+\let\oldaddchap\addchap
+\renewcommand{\addchap}[1]{\oldaddchap[#1]{\hfill{#1}\hfill\mbox{}}}
+
+\renewcommand*\chapterpagestyle{fancy}
+
+% После названия раздела надо делать отступы у абзацев.
+\usepackage{indentfirst}
+
+% https://tex.stackexchange.com/a/347803
+\usepackage{varwidth}
+
+\usepackage[perpage, symbol*]{footmisc}
+
+\newcommand{\placename}{
+    \begin{minipage}[b][1cm][b]{3cm}
+	    \underline{\hspace{3cm}}
+    \end{minipage}
+}
+\newcommand{\placedate}{
+	«\underline{\hspace{1em}}» \underline{\hspace{3cm}} \YEAR г.
+}
+% \newcommand{\facebook}{\footnote{Meta Platforms, а также принадлежащие ей социальная сеть Facebook — признана экстремистской организацией, её деятельность в России запрещена}}
+\newcommand{\facebook}{}
+
+\newcommand{\textunderset}[2]{\begin{tabular}[t]{@{}c@{}}#2\\[-0.3em]\scriptsize#1\end{tabular}}
+\newcommand{\textoverset}[2]{\begin{tabular}[b]{@{}c@{}}\scriptsize#1\\[-0.3em]#2\end{tabular}}
+\newcommand{\placeholder}[1]{\textunderset{#1}{\underline{\hspace{3cm}}}}
+
+% Подсчет числа страниц
+\usepackage{lastpage}
+
+\usepackage[figure,page]{totalcount}
+\usepackage{totcount}
+\newtotcounter{citenum}
+\newtotcounter{chaps}
+\AtEveryBibitem{\stepcounter{citenum}}
+
+\usepackage[toc,title,titletoc,header]{appendix}
+\renewcommand{\appendixname}{{Приложение}}
+\renewcommand{\appendixtocname}{{Приложения}}
+
+\AddToHook{cmd/appendix/after}{%
+  \AddToHook{cmd/chapterformat/before}{\chapapp\nobreakspace}%
+  \AddToHook{cmd/chaptermarkformat/before}{\chapapp\nobreakspace}%
+  \addtocontents{toc}{\appendixtocentry}%
+}
+
+\NewDocumentCommand{\appendixtocentry}{}{%
+  \DeclareTOCStyleEntry[
+    entrynumberformat=\tocappendixnumber,
+    dynnumwidth
+  ]{chapter}{chapter}%
+}
+\NewDocumentCommand{\tocappendixnumber}{m}{%
+  \appendixname~#1%
+}
+
+\newtotcounter{addendum}
+\newcommand{\addendum}[1]{
+    \stepcounter{addendum}
+	
+	% Сбросить все счетчики
+	\setcounter{equation}{0}
+    \setcounter{figure}{0}
+    \setcounter{table}{0}
+
+	\chapter{#1}%
+}
+
+% Ещё больше подсекций
+\newcommand{\subsubsubsection}[1]{\paragraph{#1}\mbox{}\\}
+\setcounter{secnumdepth}{4}
+\setcounter{tocdepth}{4}
+
+% TODOшечки
+\usepackage[obeyDraft,textsize=footnotesize,textwidth=35mm]{todonotes}
+\presetkeys%
+    {todonotes}%
+    {inline,backgroundcolor=yellow}{}
+
+% Добавляем гипертекстовое оглавление в PDF
+% hyperref должен быть последним
+\usepackage[hidelinks,draft=false]{hyperref}
