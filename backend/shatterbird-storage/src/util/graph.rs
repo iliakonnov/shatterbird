@@ -219,19 +219,17 @@ pub async fn find(
 }
 
 pub async fn find_line_no(storage: &Storage, range: &Range) -> Result<u32, Report> {
-    let line = storage
-        .get(range.line_id)
-        .await?
-        .ok_or_eyre(eyre!("line {} referenced, but not found", range.line_id))?;
-    let doc = storage
-        .find_one::<Node>(
-            doc! {"content.Text.lines": { "$elemMatch": { "$eq": line.id }} },
-            None,
-        )
-        .await?
-        .ok_or_eyre(eyre!("can't find file containing line {}", line.id))?;
+    let line_id = range.line_id;
+    let file = match range.path.last().copied() {
+        Some(x) => x,
+        None => return Err(eyre!("range does not contains a path"))
+    };
+    let doc = match storage.get(file).await? {
+        Some(x) => x,
+        None => return Err(eyre!("could not find {}", file)),
+    };
     let line_no = match doc.content {
-        FileContent::Text { lines, .. } => lines.iter().position(|&x| x == line.id).unwrap(),
+        FileContent::Text { lines, .. } => lines.iter().position(|&x| x == line_id).unwrap(),
         _ => return Err(eyre!("expected text file, found {:?}", doc.content)),
     };
     Ok(line_no as _)
