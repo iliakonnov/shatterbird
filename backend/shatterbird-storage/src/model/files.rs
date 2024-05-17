@@ -112,7 +112,6 @@ pub struct Node {
     pub oid: gix_hash::ObjectId,
 
     // TODO: Preserve mtime, ctime
-
     /// Содержимое объекта, в зависимости от его типа
     #[ts(inline)]
     pub content: FileContent,

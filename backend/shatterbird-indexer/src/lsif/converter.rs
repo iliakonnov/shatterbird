@@ -2,13 +2,11 @@ use either::Either;
 use eyre::{eyre, OptionExt};
 use futures::future::join_all;
 use std::hash::Hash;
-use std::ops::Deref;
 
 use futures::FutureExt;
-use gix::objs::Object;
 use gix::ObjectId;
 use rayon::prelude::*;
-use scc::{Bag, HashMap, HashSet};
+use scc::{HashMap};
 use tracing::{debug, debug_span, info, info_span, instrument, trace, warn, Level};
 
 use crate::lsif::RootMapping;
@@ -22,12 +20,6 @@ use shatterbird_storage::{Id, Model, Storage};
 use super::graph::{DocumentRef, EdgeRef, Graph, VertexRef};
 use super::lsif_ext::{EdgeDataRef, EdgeExtensions};
 
-#[derive(Debug, Clone, Hash, PartialEq, Eq)]
-struct LineKey {
-    file: lsif::Id,
-    line_no: u64,
-}
-
 #[derive(Debug)]
 struct FileWithPath {
     node: Node,
@@ -39,7 +31,6 @@ pub struct Converter<'g, 's> {
     graph: &'g Graph<'g>,
     roots: Trie<String, Either<Id<Commit>, ObjectId>>,
     files: HashMap<lsif::Id, FileWithPath>,
-    lines: HashMap<LineKey, Line>,
     ranges: HashMap<lsif::Id, Range>,
     vertices: HashMap<lsif::Id, Option<Vertex>>,
     edges: HashMap<lsif::Id, Either<Id<Edge>, Edge>>,
@@ -52,7 +43,6 @@ impl<'g, 's> Converter<'g, 's> {
             graph,
             roots: roots.into_iter().map(|x| (x.dir, x.node)).collect(),
             files: HashMap::new(),
-            lines: HashMap::new(),
             ranges: HashMap::new(),
             vertices: HashMap::new(),
             edges: HashMap::new(),

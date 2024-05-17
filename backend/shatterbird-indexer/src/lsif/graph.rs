@@ -4,8 +4,8 @@ use bumpalo::Bump;
 use multimap::MultiMap;
 use rayon::prelude::*;
 
-use lsp_types::lsif::{Document, Edge, Element, Entry, Id, Vertex};
 use crate::exclusive::Exclusive;
+use lsp_types::lsif::{Document, Edge, Element, Entry, Id, Vertex};
 
 use super::lsif_ext::EdgeExtensions;
 

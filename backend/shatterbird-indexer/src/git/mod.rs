@@ -2,9 +2,9 @@ use either::Either;
 use std::collections::HashMap;
 use std::path::Path;
 
-use eyre::{eyre, OptionExt};
+use eyre::{eyre};
 use futures::FutureExt;
-use gix::bstr::{BStr, BString};
+use gix::bstr::{BString};
 use gix::object::Kind;
 use gix::{ObjectId, Repository};
 use tracing::{debug, debug_span, instrument, warn, Instrument};
@@ -166,7 +166,7 @@ impl<'s, 'r> Walker<'s, 'r> {
         .instrument(span)
         .await
     }
-    
+
     #[instrument(skip_all, err)]
     async fn insert_lines(&self, lines: Vec<&str>) -> eyre::Result<Vec<Id<Line>>> {
         let mut line_ids: Vec<_> = lines

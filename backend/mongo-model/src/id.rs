@@ -1,4 +1,4 @@
-use crate::{Model};
+use crate::Model;
 use bson::oid::ObjectId;
 use bson::Bson;
 use derive_where::{derive_where, DeriveWhere};
@@ -55,7 +55,7 @@ impl<T: Model + ?Sized> From<Id<T>> for Bson {
 
 impl<T: Model + ?Sized> FromStr for Id<T> {
     type Err = bson::oid::Error;
-    
+
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         ObjectId::from_str(s).map(|id| id.into())
     }

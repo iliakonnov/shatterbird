@@ -49,7 +49,7 @@ impl Storage {
         filter: impl Into<Option<Document>>,
         options: impl Into<Option<FindOneOptions>>,
     ) -> eyre::Result<Option<T>> {
-        Ok(self.access().find_one(filter, None).await?)
+        Ok(self.access().find_one(filter, options).await?)
     }
 
     pub async fn find<T: Model>(

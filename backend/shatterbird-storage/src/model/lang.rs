@@ -37,7 +37,6 @@ pub struct Edge {
     pub data: EdgeInfo,
 }
 
-
 // Same as https://docs.rs/lsp-types/latest/lsp_types/lsif/enum.Edge.html
 // But with all `Id`s replaced with `Id<Vertex>`.
 #[derive(Debug, Clone, Serialize, Deserialize, EnumTryAs, EnumDiscriminants)]

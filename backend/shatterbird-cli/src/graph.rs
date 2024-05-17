@@ -9,7 +9,7 @@ use image::Rgba;
 use shatterbird_storage::model::lang::{
     EdgeInfoDiscriminants, VertexInfo, VertexInfoDiscriminants,
 };
-use shatterbird_storage::model::{Edge, FileContent, Range, Vertex};
+use shatterbird_storage::model::{Edge, Range, Vertex};
 use shatterbird_storage::{util, Id};
 use std::collections::{HashMap, HashSet};
 use std::io::{BufWriter, Write};
@@ -32,7 +32,6 @@ pub struct Graph {
 }
 
 struct State<W> {
-    ranges: Vec<Id<Range>>,
     vertices: HashMap<Id<Vertex>, bool>,
     edges: HashSet<Id<Edge>>,
     writer: W,
@@ -59,7 +58,6 @@ impl Graph {
 
         {
             let mut state = State {
-                ranges: self.ranges,
                 vertices: HashMap::new(),
                 edges: HashSet::new(),
                 writer: BufWriter::new(&mut output),
@@ -167,7 +165,7 @@ impl<W: Write> State<W> {
         let mut xlabel = None;
         let mut tooltip = None;
 
-        if let VertexInfo::Range { range, tag } = &vertex.data {
+        if let VertexInfo::Range { range, .. } = &vertex.data {
             let range = storage
                 .get(*range)
                 .await?

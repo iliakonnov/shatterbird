@@ -1,16 +1,15 @@
 use std::collections::HashMap;
 
-use either::Either;
 use eyre::{eyre, OptionExt, Report};
 use futures::join;
 use lsp_types::{Position, Url};
 use mongodb::bson::doc;
 use thiserror::Error;
-use tracing::{instrument, trace, warn};
+use tracing::{instrument, trace};
 
 use crate::model::lang::{EdgeInfo, EdgeInfoDiscriminants, VertexInfo, VertexInfoDiscriminants};
 use crate::model::{Commit, Edge, FileContent, Line, Node, Range, Vertex};
-use crate::{Id, Storage, util};
+use crate::{util, Id, Storage};
 
 #[derive(Debug, Error)]
 pub enum ResolveError {
@@ -110,7 +109,7 @@ pub async fn find(
     edge: Option<EdgeInfoDiscriminants>,
     position: &lsp_types::TextDocumentPositionParams,
 ) -> Result<ResolvedPosition, FindError> {
-    let node = resolve_url(&storage, &position.text_document.uri).await?;
+    let node = resolve_url(storage, &position.text_document.uri).await?;
     let lines = match &node.content {
         FileContent::Text { lines, .. } => lines,
         _ => return Err(FindError::NotATextFile),
@@ -223,7 +222,7 @@ pub async fn find_line_no(storage: &Storage, range: &Range) -> Result<u32, Repor
     let line_id = range.line_id;
     let file = match range.path.last().copied() {
         Some(x) => x,
-        None => return Err(eyre!("range does not contains a path"))
+        None => return Err(eyre!("range does not contains a path")),
     };
     let doc = match storage.get(file).await? {
         Some(x) => x,
@@ -267,7 +266,7 @@ pub async fn find_file_path(storage: &Storage, range: &Range) -> Result<Vec<Stri
         };
         let name = children
             .iter()
-            .find(|(k, v)| **v == curr)
+            .find(|(_, v)| **v == curr)
             .map(|(k, _)| k)
             .ok_or_eyre(eyre!("node {} not found in {}", curr, parent.id))?;
         path.push(&name[..])
@@ -279,7 +278,9 @@ pub fn filter_vertices(
     vertices: impl IntoIterator<Item = Vertex>,
     kind: VertexInfoDiscriminants,
 ) -> impl Iterator<Item = Vertex> {
-    vertices.into_iter().filter(move |i| VertexInfoDiscriminants::from(&i.data) == kind)
+    vertices
+        .into_iter()
+        .filter(move |i| VertexInfoDiscriminants::from(&i.data) == kind)
 }
 
 #[instrument(skip_all, ret, err)]
@@ -289,7 +290,7 @@ pub async fn find_items(
 ) -> Result<Vec<Range>, Report> {
     let results = results.collect::<Vec<_>>();
     if results.is_empty() {
-        return Ok(Vec::new())
+        return Ok(Vec::new());
     }
     let items = storage
         .find::<Edge>(
@@ -332,10 +333,12 @@ pub async fn find_items(
 
 pub async fn to_location(storage: &Storage, range: &Range) -> eyre::Result<lsp_types::Location> {
     let path = async {
-        let path = find_file_path(storage, &range).await?;
-        format!("bird:///{}", path.join("/")).parse().map_err(Report::new)
+        let path = find_file_path(storage, range).await?;
+        format!("bird:///{}", path.join("/"))
+            .parse()
+            .map_err(Report::new)
     };
-    let line_no = util::graph::find_line_no(storage, &range);
+    let line_no = util::graph::find_line_no(storage, range);
     let (path, line_no) = join!(path, line_no);
     let (path, line_no) = (path?, line_no?);
     Ok(lsp_types::Location {

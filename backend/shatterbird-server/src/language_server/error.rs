@@ -3,7 +3,6 @@ use axum_derive_error::ErrorResponse;
 use eyre::{eyre, Report};
 use lsp_types::Url;
 use shatterbird_storage::util::graph::{FindError, ResolveError};
-use std::error::Error;
 use thiserror::Error;
 
 #[derive(Error, ErrorResponse)]

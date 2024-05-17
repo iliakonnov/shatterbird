@@ -13,7 +13,7 @@ use mongodb::bson::doc;
 use mongodb::bson::oid::ObjectId;
 use serde::{Deserialize, Serialize};
 
-use shatterbird_storage::model::{BlobFile, Commit, FileContent, Line, Node};
+use shatterbird_storage::model::{BlobFile, Commit, FileContent, Node};
 use shatterbird_storage::Id;
 
 use crate::filesystem::model::{EitherNode, ExpandedFileContent, FullNode, NodeInfo};

@@ -30,7 +30,7 @@ macro_rules! route {
 pub fn router() -> Router<Arc<ServerState>> {
     route!(Router::new(),
         "initialize" -> initialize,
-        "textDocument/hover" -> methods::hover_range,
+        "textDocument/hover" -> methods::hover,
         "textDocument/definition" -> methods::go_to_definition,
         "textDocument/references" -> methods::references,
     )
@@ -48,9 +48,9 @@ where
     axum::routing::post(handler)
 }
 
-#[instrument(skip(state), err)]
+#[instrument(skip(_state), err)]
 async fn initialize(
-    state: Arc<ServerState>,
+    _state: Arc<ServerState>,
     req: lsp_types::InitializeParams,
 ) -> Result<InitializeResult, LspError> {
     Ok(InitializeResult {

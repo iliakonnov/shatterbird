@@ -3,15 +3,15 @@ use std::path::PathBuf;
 
 use crate::lsif::RootMapping;
 use clap::{arg, Parser, Subcommand};
-use tracing::{debug, info};
+use tracing::{info};
 use tracing_error::ErrorLayer;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 use tracing_subscriber::{Layer, Registry};
 
+mod exclusive;
 mod git;
 mod lsif;
-mod exclusive;
 
 #[derive(Parser, Debug)]
 struct Args {

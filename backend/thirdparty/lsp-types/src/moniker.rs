@@ -59,7 +59,7 @@ pub enum MonikerKind {
     Local,
     /// SCIP-specific
     /// https://github.com/sourcegraph/scip/blob/6495bfbd33671ccd4a2358505fdf30058140ff32/bindings/go/scip/convert.go#L204
-    Implementation
+    Implementation,
 }
 
 #[derive(Debug, Eq, PartialEq, Clone, Deserialize, Serialize)]

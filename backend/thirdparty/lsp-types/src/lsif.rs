@@ -46,7 +46,7 @@ pub struct ToolInfo {
 pub enum Encoding {
     #[serde(rename = "utf-8")]
     Utf8,
-    
+
     #[serde(rename = "utf-16")]
     Utf16,
 }
