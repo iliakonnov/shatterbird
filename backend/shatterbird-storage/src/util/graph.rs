@@ -104,7 +104,7 @@ pub enum FindError {
     ),
 }
 
-#[instrument(skip_all, fields(uri = %position.text_document.uri, edge=?edge, position = ?position.position))]
+#[instrument(skip_all, fields(uri = %position.text_document.uri, edge=?edge, position = ?position.position), ret)]
 pub async fn find(
     storage: &Storage,
     edge: Option<EdgeInfoDiscriminants>,
@@ -218,6 +218,7 @@ pub async fn find(
     Ok(result)
 }
 
+#[instrument(skip_all, fields(range = ?range), ret, err)]
 pub async fn find_line_no(storage: &Storage, range: &Range) -> Result<u32, Report> {
     let line_id = range.line_id;
     let file = match range.path.last().copied() {
@@ -281,6 +282,7 @@ pub fn filter_vertices(
     vertices.into_iter().filter(move |i| VertexInfoDiscriminants::from(&i.data) == kind)
 }
 
+#[instrument(skip_all, ret, err)]
 pub async fn find_items(
     storage: &Storage,
     results: impl Iterator<Item = Id<Vertex>>,

@@ -6,6 +6,7 @@ COPY . .
 RUN cargo build --release
 
 FROM rust:1.78 as shatterbird-cli
+RUN apt-get update && apt-get install -y graphviz
 COPY --from=builder /src/target/release/shatterbird-server /shatterbird-cli
 ENTRYPOINT ["/shatterbird-cli"]
 

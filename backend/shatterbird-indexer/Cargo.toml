@@ -24,3 +24,4 @@ tracing = { version = "0.1.40", features = ["release_max_level_info", "max_level
 tracing-error = "0.2"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 radix_trie = "0.2"
+similar = "2.5.0"

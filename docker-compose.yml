@@ -5,8 +5,8 @@ services:
       target: shatterbird-server
     command: ["--db-url", "mongodb://mongo:27017/db", "--addr", "0.0.0.0:3000"]
     networks:
-      - shatterbird-back
-      - shatterbird-front
+      - back
+      - front
     environment:
       - RUST_LOG=info
   mongo:
@@ -14,20 +14,36 @@ services:
     volumes:
       - mongo-data:/data/db
     networks:
-      - shatterbird-back
+      - back
   frontend:
     build:
       context: ./frontend/
     environment:
       - CADDY_DOMAIN=*
       - BACKEND_HOST=backend:3000
+    volumes:
+      - caddy-data:/data
     ports:
       - 80:80
       - 443:443
     networks:
-      - shatterbird-front
+      - front
+
+  indexer:
+    build:
+      context: ./backend/
+      target: shatterbird-indexer
+    profiles:
+      - build
+  cli:
+    build:
+      context: ./backend/
+      target: shatterbird-cli
+    profiles:
+      - build
 volumes:
   mongo-data: {}
+  caddy-data: {}
 networks:
-  shatterbird-back: {}
-  shatterbird-front: {}
+  back: {}
+  front: {}
