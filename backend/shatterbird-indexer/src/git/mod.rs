@@ -1,10 +1,12 @@
+use either::Either;
 use std::collections::HashMap;
 use std::path::Path;
 
-use eyre::eyre;
+use eyre::{eyre, OptionExt};
 use futures::FutureExt;
+use gix::bstr::{BStr, BString};
 use gix::object::Kind;
-use gix::Repository;
+use gix::{ObjectId, Repository};
 use tracing::{debug, debug_span, instrument, warn, Instrument};
 
 use shatterbird_storage::model::{BlobFile, Commit, FileContent, Line, Node};
@@ -13,11 +15,18 @@ use shatterbird_storage::{Id, Model, Storage};
 struct Walker<'s, 'r> {
     storage: &'s Storage,
     repo: &'r Repository,
+    path: RepoPath,
 }
 
-impl<'s, 'r> Walker<'_, 'r> {
+#[derive(Default)]
+struct RepoPath {
+    commits: Vec<ObjectId>,
+    path: Vec<BString>,
+}
+
+impl<'s, 'r> Walker<'s, 'r> {
     #[instrument(skip_all, fields(tree = %tree.id), err)]
-    async fn visit_tree(&self, tree: gix::Tree<'r>) -> eyre::Result<Id<Node>> {
+    async fn visit_tree(&mut self, tree: gix::Tree<'r>) -> eyre::Result<Id<Node>> {
         if let Some(x) = self.storage.get_by_oid::<Node>(tree.id).await? {
             debug!("skipping existing tree");
             return Ok(x.id());
@@ -25,6 +34,7 @@ impl<'s, 'r> Walker<'_, 'r> {
         let data = tree.decode()?;
         let mut children = HashMap::new();
         for entry in data.entries {
+            self.path.path.push(entry.filename.to_owned());
             let child = self.repo.find_object(entry.oid)?;
             let child_id = match child.kind {
                 Kind::Tree => {
@@ -42,6 +52,7 @@ impl<'s, 'r> Walker<'_, 'r> {
                 }
             };
             children.insert(entry.filename.to_string(), child_id);
+            self.path.path.pop();
         }
         let result = Node {
             id: Id::new(),
@@ -71,17 +82,10 @@ impl<'s, 'r> Walker<'_, 'r> {
         }
         let content = match self.try_parse_lines(&blob.data) {
             Ok(lines) => {
-                let lines: Vec<_> = lines
-                    .iter()
-                    .map(|ln| Line {
-                        id: Id::new(),
-                        text: ln.to_string(),
-                    })
-                    .collect();
-                self.storage.insert_many(lines.iter()).await?;
+                let lines = self.insert_lines(lines).await?;
                 FileContent::Text {
                     size: blob.data.len() as _,
-                    lines: lines.into_iter().map(|ln| ln.id()).collect(),
+                    lines,
                 }
             }
             Err(_) => {
@@ -107,11 +111,12 @@ impl<'s, 'r> Walker<'_, 'r> {
     }
 
     async fn visit_commit(
-        &self,
+        &mut self,
         commit: gix::Commit<'r>,
         max_depth: u32,
     ) -> eyre::Result<Id<Commit>> {
         let span = debug_span!("visit_commit", commit = %commit.id);
+        self.path.commits.push(commit.id);
 
         let (tree, commit_info) = {
             let _guard = span.enter();
@@ -154,11 +159,86 @@ impl<'s, 'r> Walker<'_, 'r> {
                 root: self.visit_tree(tree).await?,
                 parents,
             };
+            self.path.commits.pop();
             self.storage.insert_one(&commit).await?;
             Ok(commit.id)
         }
         .instrument(span)
         .await
+    }
+    
+    #[instrument(skip_all, err)]
+    async fn insert_lines(&self, lines: Vec<&str>) -> eyre::Result<Vec<Id<Line>>> {
+        let mut line_ids: Vec<_> = lines
+            .iter()
+            .map(|ln| {
+                Either::<Line, Id<Line>>::Left(Line {
+                    id: Id::new(),
+                    text: ln.to_string(),
+                })
+            })
+            .collect();
+
+        // Find previous blob
+        let commit = self
+            .path
+            .commits
+            .last()
+            .expect("current commit must be set");
+        let commit = self.repo.find_object(*commit)?.try_into_commit()?;
+        let data = commit.decode()?;
+        let mut buf = Vec::new();
+        for parent in data.parents() {
+            let commit = self.repo.find_object(parent)?.try_into_commit()?;
+            let blob = commit
+                .tree()?
+                .lookup_entry(self.path.path.iter().map(AsRef::<[u8]>::as_ref), &mut buf)?;
+            let blob = match blob {
+                Some(x) => x,
+                None => continue,
+            };
+            let old_ids = match self.storage.get_by_oid::<Node>(blob.object_id()).await? {
+                Some(Node {
+                    content: FileContent::Text { lines, .. },
+                    ..
+                }) => lines,
+                _ => continue,
+            };
+            let blob = match blob.object()?.try_into_blob() {
+                Ok(x) => x,
+                Err(_) => continue,
+            };
+            let text = match std::str::from_utf8(&blob.data) {
+                Ok(x) => x,
+                Err(_) => continue,
+            };
+            let old_lines = text.lines().collect::<Vec<_>>();
+            let diff = similar::capture_diff_slices(
+                similar::Algorithm::Patience,
+                &old_lines[..],
+                &lines[..],
+            );
+            for op in diff {
+                if let similar::DiffOp::Equal {
+                    old_index,
+                    new_index,
+                    len,
+                } = op
+                {
+                    for i in 0..len {
+                        line_ids[new_index + i] = Either::Right(old_ids[old_index + i]);
+                    }
+                }
+            }
+        }
+
+        self.storage
+            .insert_many(line_ids.iter().filter_map(|x| x.as_ref().left()))
+            .await?;
+        Ok(line_ids
+            .into_iter()
+            .filter_map(|x| x.map_left(|x| x.id()).either_into())
+            .collect())
     }
 }
 
@@ -167,11 +247,13 @@ pub async fn index(storage: &Storage, root: &Path, max_depth: u32) -> eyre::Resu
     let mut head = repo.head()?;
     let commit = head.peel_to_commit_in_place()?;
 
-    let indexer = Walker {
+    let mut indexer = Walker {
         storage,
         repo: &repo,
+        path: RepoPath::default(),
     };
-    indexer.visit_commit(commit, max_depth).await?;
+    let result = indexer.visit_commit(commit, max_depth).await?;
 
+    println!("{}", result);
     Ok(())
 }
